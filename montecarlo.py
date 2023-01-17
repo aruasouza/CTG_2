@@ -37,6 +37,9 @@ def find_datas(index):
     main_dataframe['mes'] = main_dataframe['date'].apply(lambda x: x.split('-')[1])
     os.remove(file_name)
 
+def linhas_limite(data,simulation):
+    pass
+
 def simulate(mes,ano):
     data = f'{ano}-{mes}'
     linha = main_dataframe.loc[main_dataframe['date'] == data]
