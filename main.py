@@ -87,24 +87,35 @@ def forecast_selic():
     thread = threading.Thread(target = thread_selic)
     thread.start()
 
+def show_simulation():
+    plt.hist(montecarlo.simulation)
+    plt.show()
+
 def simulation_done_window(ano,mes):
     terminate_window()
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
     montecarlo.simulate(ano,mes)
-    ttk.Button(root,text = 'Visualizar',command = show_simulation)
+    ttk.Button(root,text = 'Visualizar',command = show_simulation).place(relx=0.5,rely=0.5,anchor='center')
 
 def select_mes(ano):
+    terminate_window()
+    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
+    ttk.Button(root,text = 'Voltar',command = lambda: get_file_names(montecarlo.main_info['risco'])).place(relx=0.1,rely=0.2,anchor='center')
     df = montecarlo.main_dataframe
     menu_mes = Menu(root)
     for mes in df[df['ano'] == ano]['mes']:
-        menu_mes.add_command(label = mes,command = lambda: simulation_done_window(ano,mes))
+        menu_mes.add_command(label = mes,command = lambda mes=mes: simulation_done_window(mes,ano))
+    ttk.Menubutton(root,text = 'Selecionar Mês',menu = menu_mes).place(relx=0.5, rely=0.5, anchor='center')
 
 def select_ano(index):
+    terminate_window()
+    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
+    ttk.Button(root,text = 'Voltar',command = lambda: get_file_names(montecarlo.main_info['risco'])).place(relx=0.1,rely=0.2,anchor='center')
     montecarlo.find_datas(index)
     menu_ano = Menu(root)
     df = montecarlo.main_dataframe
     for ano in df['ano'].unique():
-        menu_ano.add_command(label = ano,command = lambda: select_mes(ano))
+        menu_ano.add_command(label = ano,command = lambda ano=ano: select_mes(ano))
     ttk.Menubutton(root,text = 'Selecionar Ano',menu = menu_ano).place(relx=0.5, rely=0.5, anchor='center')
 
 def get_file_names(risco):
@@ -114,8 +125,8 @@ def get_file_names(risco):
     info = montecarlo.main_info
     menu = Menu(root)
     for i in range(info['size'] - 1,-1,-1):
-        menu.add_command(label = info['full_strings'][i],command = lambda: select_ano(i))
-    ttk.Menubutton(root,text = 'Selecionar Arquivo',menu = menu).place(relx=0.5, rely=0.4, anchor='center')
+        menu.add_command(label = info['full_strings'][i],command = lambda i=i: select_ano(i))
+    ttk.Menubutton(root,text = 'Selecionar Arquivo',menu = menu).place(relx=0.5, rely=0.5, anchor='center')
 
 def create_forecast_window():
     terminate_window()
