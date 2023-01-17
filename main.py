@@ -104,7 +104,7 @@ def select_mes(ano):
     df = montecarlo.main_dataframe
     menu_mes = Menu(root)
     for mes in df[df['ano'] == ano]['mes']:
-        menu_mes.add_command(label = mes,command = lambda: simulation_done_window(mes,ano))
+        menu_mes.add_command(label = mes,command = lambda mes=mes: simulation_done_window(mes,ano))
     ttk.Menubutton(root,text = 'Selecionar Mês',menu = menu_mes).place(relx=0.5, rely=0.5, anchor='center')
 
 def select_ano(index):
@@ -115,7 +115,7 @@ def select_ano(index):
     menu_ano = Menu(root)
     df = montecarlo.main_dataframe
     for ano in df['ano'].unique():
-        menu_ano.add_command(label = ano,command = lambda: select_mes(ano))
+        menu_ano.add_command(label = ano,command = lambda ano=ano: select_mes(ano))
     ttk.Menubutton(root,text = 'Selecionar Ano',menu = menu_ano).place(relx=0.5, rely=0.5, anchor='center')
 
 def get_file_names(risco):
@@ -125,7 +125,7 @@ def get_file_names(risco):
     info = montecarlo.main_info
     menu = Menu(root)
     for i in range(info['size'] - 1,-1,-1):
-        menu.add_command(label = info['full_strings'][i],command = lambda: select_ano(i))
+        menu.add_command(label = info['full_strings'][i],command = lambda i=i: select_ano(i))
     ttk.Menubutton(root,text = 'Selecionar Arquivo',menu = menu).place(relx=0.5, rely=0.5, anchor='center')
 
 def create_forecast_window():
