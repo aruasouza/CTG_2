@@ -190,9 +190,9 @@ def predict_ipca(test = False,lags = None):
         results = {}
         for anos in lags:
             x_train,y_train = train_test_split(df,ipca,anos)
-            model = LSTM(y_train,x_train).fit(24,12 * anos)
+            model = RegressionPlusLSTM(y_train,x_train,square).fit(24,12 * anos)
             # Calculando o Erro
-            prediction = model.predict(12 * anos)
+            prediction = model.predict(12 * anos,0.5)
             pred_df = ipca.copy()
             pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
             results[anos] = pred_df
@@ -203,8 +203,8 @@ def predict_ipca(test = False,lags = None):
         std = mean_squared_error(pred['indice'],pred['prediction'],squared = False)
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
-        model = LSTM(ipca,df).fit(24,12 * anos)
-        prediction = model.predict(12 * anos)
+        model = RegressionPlusLSTM(ipca,df,square).fit(24,12 * anos)
+        prediction = model.predict(12 * anos,0.5)
         pred_df = pd.DataFrame({'prediction':prediction},
             index = pd.period_range(start = ipca.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         pred_df['superior'] = [pred + (pred * res_max) for pred in prediction]
@@ -231,9 +231,9 @@ def predict_cambio(test = False,lags = None):
         results = {}
         for anos in lags:
             x_train,y_train = train_test_split(df,cambio,anos)
-            model = RegressionPlusLSTM(y_train,x_train,simple_square).fit(36,12 * anos)
+            model = RegressionPlusLSTM(y_train,x_train,square).fit(36,12 * anos)
             # Calculando o Erro
-            prediction = model.predict(12 * anos,0.6)
+            prediction = model.predict(12 * anos,0.2)
             pred_df = cambio.copy()
             pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
             results[anos] = pred_df
@@ -244,8 +244,8 @@ def predict_cambio(test = False,lags = None):
         std = mean_squared_error(pred['cambio'],pred['prediction'],squared = False)
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
-        model = RegressionPlusLSTM(cambio,df,simple_square).fit(36,12 * anos)
-        prediction = model.predict(12 * anos,0.6)
+        model = RegressionPlusLSTM(cambio,df,square).fit(36,12 * anos)
+        prediction = model.predict(12 * anos,0.2)
         pred_df = pd.DataFrame({'prediction':prediction},
             index = pd.period_range(start = cambio.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         pred_df['superior'] = [pred + (pred * res_max) for pred in prediction]
@@ -274,7 +274,7 @@ def predict_selic(test = False,lags = None):
             x_train,y_train = train_test_split(df,selic,anos)
             model = RegressionPlusLSTM(y_train,x_train,square).fit(60,12 * anos)
             # Calculando o Erro
-            prediction = model.predict(12 * anos,0.8)
+            prediction = model.predict(12 * anos,0.2)
             pred_df = selic.copy()
             pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
             results[anos] = pred_df
