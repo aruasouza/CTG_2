@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
+import math
 from bcb import sgs,currency
 from fredapi import Fred
-from sklearn.metrics import mean_squared_error
 from datetime import date,datetime
 from dateutil.relativedelta import relativedelta
 from scipy.optimize import curve_fit
@@ -200,7 +200,7 @@ def predict_ipca(test = False,lags = None):
             return results
         pred_df['res'] = ((pred_df['indice'] - pred_df['prediction']) / pred_df['indice']).apply(abs)
         pred = pred_df.dropna()
-        std = mean_squared_error(pred['indice'],pred['prediction'],squared = False)
+        std = math.sqrt(np.square(np.subtract(pred['indice'].values,pred['prediction'].values)).mean())
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
         model = RegressionPlusLSTM(ipca,df,square).fit(24,12 * anos)
@@ -241,7 +241,7 @@ def predict_cambio(test = False,lags = None):
             return results
         pred_df['res'] = ((pred_df['cambio'] - pred_df['prediction']) / pred_df['cambio']).apply(abs)
         pred = pred_df.dropna()
-        std = mean_squared_error(pred['cambio'],pred['prediction'],squared = False)
+        std = math.sqrt(np.square(np.subtract(pred['cambio'].values,pred['prediction'].values)).mean())
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
         model = RegressionPlusLSTM(cambio,df,square).fit(36,12 * anos)
@@ -282,7 +282,7 @@ def predict_selic(test = False,lags = None):
             return results
         pred_df['res'] = (pred_df['selic'] - pred_df['prediction']).apply(abs)
         pred = pred_df.dropna()
-        std = mean_squared_error(pred['selic'],pred['prediction'],squared = False)
+        std = math.sqrt(np.square(np.subtract(pred['selic'].values,pred['prediction'].values)).mean())
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
         model = RegressionPlusLSTM(selic,df,square).fit(60,12 * anos)
