@@ -2,7 +2,9 @@ pandas
 numpy
 python-bcb
 fredapi
-sklearn
 darts
 azure-datalake-store
+azure-mgmt-resource
+azure-mgmt-datalake-store
 ttkthemes
+pyinstaller

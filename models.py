@@ -13,12 +13,15 @@ import os
 import time
 from azure.datalake.store import multithread
 from setup import logfile_name,adlsFileSystemClient,upload_file_to_directory
+from sklearn.linear_model import LinearRegression
 
 # Função que devolve o error e concatena no arquivo de log
 def error(e):
     log = pd.read_csv(logfile_name)
     log = pd.concat([log,pd.DataFrame({'time':[datetime.now()],'output':['erro'],'error':[repr(e)]})])
     log.to_csv(logfile_name,index = False)
+    multithread.ADLUploader(adlsFileSystemClient, lpath=logfile_name,
+        rpath=f'DataLakeRiscoECompliance/LOG/{logfile_name}', nthreads=64, overwrite=True, buffersize=4194304, blocksize=4194304)
 
 def success(name,output):
     time = datetime.now()
@@ -102,17 +105,13 @@ def get_indicators_cambio(start_date):
     
 # Função para realizar a captura de dados para cálculo da taxa Selic
 def get_indicators_selic(start_date):
-    dados = {'selic':432,'IPCA_change':433,'pib':1208}
+    dados = {'selic':432}
     try:
         dataframe = sgs.get(dados,start = start_date)
     except:
         raise TimeoutError('Erro de conexão com o Banco Central')
-    dataframe = dataframe.fillna(method = 'ffill')
     dataframe = dataframe.resample('m').mean()
-    dataframe['indice'] = [valor for valor in absolute(dataframe['IPCA_change'].values)]
-    del(dataframe['IPCA_change'])
-    dataframe = dataframe.dropna()
-    return dataframe.iloc[:-2]
+    return dataframe
 
 # Classe utilizada para criar o modelo LSTM (IPCA)
 class LSTM:
@@ -151,6 +150,26 @@ def simple_square(x,a):
 def square(x,a,b,c):
     return ((x ** 2) * a) + (x * b) + c
 
+def linear(x,a,b):
+    return (x * a) + b
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
+
+def weight(points,expo):
+    def ajust(i):
+        return sigmoid(i/points) ** expo
+    return ajust
+
+def simple_model_predict(serie,projection_points):
+    values = serie.values
+    last_dif = values[-1] - values[-2]
+    line = LinearRegression().fit(np.arange(len(values)).reshape(-1,1),values).predict(np.arange(len(values),len(values) + projection_points).reshape(-1,1)) - values[-1]
+    line_derivada = np.cumsum(np.array([last_dif] * projection_points))
+    ajuster = weight(10,10)
+    final = [(line_derivada[i] * (1 - ajuster(i))) + (line[i] * ajuster(i)) for i in range(projection_points)]
+    return final + values[-1]
+
 # Classe utilizada para criar o modelo de regressão + LSTM para o câmbio
 class RegressionPlusLSTM:
     def __init__(self,target_data,extra_data,func):
@@ -179,6 +198,7 @@ class RegressionPlusLSTM:
 
 # Função que prevê o IPCA
 def predict_ipca(test = False,lags = None):
+    global run_status
     try:
         # Obtendo os dados
         df = get_indicators_ipca('2000-01-01')
@@ -216,10 +236,13 @@ def predict_ipca(test = False,lags = None):
             index = pd.date_range(start = ipca.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         global data_for_plotting
         data_for_plotting = pd.concat([ipca.copy(),plot_df])
+        run_status = 'O forecast foi gerado e enviado com sucesso para a nuvem'
     except Exception as e:
         error(e)
+        run_status = e
 
 def predict_cambio(test = False,lags = None):
+    global run_status
     try:
         # Puxando os dados de câmbio
         df = get_indicators_cambio('2000-01-01')
@@ -257,25 +280,26 @@ def predict_cambio(test = False,lags = None):
             index = pd.date_range(start = cambio.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         global data_for_plotting
         data_for_plotting = pd.concat([cambio.copy(),plot_df])
+        run_status = 'O forecast foi gerado e enviado com sucesso para a nuvem'
     except Exception as e:
         error(e)
+        run_status = e
 
 def predict_selic(test = False,lags = None):
+    global run_status
     try:
         # Puxando e plotando os dados de IPCA
         df = get_indicators_selic('2000-01-01')
-        selic = df[['selic']].copy()
-        df = df.drop(['selic'],axis = 1)
+        selic = df['selic']
         # Treinando o modelo de SELIC
         if not test:
             lags = [5]
         results = {}
         for anos in lags:
-            x_train,y_train = train_test_split(df,selic,anos)
-            model = RegressionPlusLSTM(y_train,x_train,square).fit(60,12 * anos)
+            y_train = selic.iloc[:-12 * anos]
             # Calculando o Erro
-            prediction = model.predict(12 * anos,0.2)
-            pred_df = selic.copy()
+            prediction = simple_model_predict(y_train,12 * anos)
+            pred_df = df.copy()
             pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
             results[anos] = pred_df
         if test:
@@ -285,8 +309,7 @@ def predict_selic(test = False,lags = None):
         std = math.sqrt(np.square(np.subtract(pred['selic'].values,pred['prediction'].values)).mean())
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
-        model = RegressionPlusLSTM(selic,df,square).fit(60,12 * anos)
-        prediction = model.predict(12 * anos,0.2)
+        prediction = simple_model_predict(selic,12 * anos)
         pred_df = pd.DataFrame({'prediction':prediction},
             index = pd.period_range(start = selic.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         pred_df['superior'] = [pred + res_max for pred in prediction]
@@ -298,5 +321,7 @@ def predict_selic(test = False,lags = None):
             index = pd.date_range(start = selic.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         global data_for_plotting
         data_for_plotting = pd.concat([selic.copy(),plot_df])
+        run_status = 'O forecast foi gerado e enviado com sucesso para a nuvem'
     except Exception as e:
         error(e)
+        run_status = e

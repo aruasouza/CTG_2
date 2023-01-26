@@ -1,0 +1,8 @@
+collect submodules:
+- sklearn
+
+collect all:
+- xgboost
+- prophet
+- lightning_fabric
+- pytorch_lightning

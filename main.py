@@ -1,16 +1,20 @@
 from tkinter import ttk
+import tkinter as tk
 from ttkthemes import ThemedTk
 from tkinter import font,Menu
 from tkinter import filedialog
 import models
 import threading
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 from azure.datalake.store import multithread
 import pandas as pd
 from datetime import datetime
 import re
 from setup import upload_file_to_directory,logfile_name,adlsFileSystemClient
 import montecarlo
+import time
 
 def upload_file(Risco):
     create_upload_window()
@@ -48,13 +52,26 @@ def upload_file(Risco):
     ttk.Label(root,text = 'O arquivo foi enviado com sucesso para a nuvem.').place(relx=0.5, rely=0.2, anchor='center')
 
 def show_forecast():
-    plt.plot(models.data_for_plotting)
-    plt.show()
+    fig = Figure(figsize = (10,7),dpi = 100)
+    fig.add_subplot(111).plot(models.data_for_plotting)
+    canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
+
+def show_simulation():
+    fig = Figure(figsize = (10,7),dpi = 100)
+    fig.add_subplot(111).hist(montecarlo.simulation)
+    canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_done_window():
     terminate_window()
-    ttk.Label(root,text = 'O forecast foi gerado e enviado com sucesso para a nuvem').place(relx=0.5, rely=0.4, anchor='center')
-    ttk.Button(root,text = 'Visualizar',command = show_forecast).place(relx=0.5,rely=0.6,anchor='center')
+    ttk.Label(root,text = models.run_status).place(relx=0.5, rely=0.4, anchor='center')
+    if models.run_status == 'O forecast foi gerado e enviado com sucesso para a nuvem':
+        ttk.Button(root,text = 'Visualizar',command = show_forecast).place(relx=0.5,rely=0.6,anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def thread_ipca():
@@ -86,10 +103,6 @@ def forecast_selic():
     ttk.Label(root,text = 'Aguarde, a função está sendo executada').place(relx=0.5, rely=0.5, anchor='center')
     thread = threading.Thread(target = thread_selic)
     thread.start()
-
-def show_simulation():
-    plt.hist(montecarlo.simulation)
-    plt.show()
 
 def simulation_done_window(ano,mes):
     terminate_window()
