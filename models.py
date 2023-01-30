@@ -256,7 +256,7 @@ def predict_cambio(test = False,lags = None):
             x_train,y_train = train_test_split(df,cambio,anos)
             model = RegressionPlusLSTM(y_train,x_train,square).fit(36,12 * anos)
             # Calculando o Erro
-            prediction = model.predict(12 * anos,0.2)
+            prediction = model.predict(12 * anos,0)
             pred_df = cambio.copy()
             pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
             results[anos] = pred_df
@@ -268,7 +268,7 @@ def predict_cambio(test = False,lags = None):
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
         model = RegressionPlusLSTM(cambio,df,square).fit(36,12 * anos)
-        prediction = model.predict(12 * anos,0.2)
+        prediction = model.predict(12 * anos,0)
         pred_df = pd.DataFrame({'prediction':prediction},
             index = pd.period_range(start = cambio.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         pred_df['superior'] = [pred + (pred * res_max) for pred in prediction]

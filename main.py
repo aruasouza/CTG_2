@@ -14,7 +14,6 @@ from datetime import datetime
 import re
 from setup import upload_file_to_directory,logfile_name,adlsFileSystemClient
 import montecarlo
-import time
 
 def upload_file(Risco):
     create_upload_window()
