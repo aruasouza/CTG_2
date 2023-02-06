@@ -59,12 +59,22 @@ def show_forecast():
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def show_simulation():
-    fig = Figure(figsize = (10,7),dpi = 100)
-    fig.add_subplot(111).hist(montecarlo.simulation)
+    import budget
+    fig = Figure(figsize = (5,3),dpi = 100)
+    risco = montecarlo.main_info['risco']
+    simulation_data = budget.simulate(risco)
+    ax = fig.add_subplot(111)
+    for cenario in simulation_data['cenarios'][:1000]:
+        ax.plot(cenario.index,cenario,alpha = 0.1,color = 'red')
+    ax.set_title(f'Cenários {risco}')
     canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
     canvas.draw()
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
+    pior,melhor = simulation_data['pior'],simulation_data['melhor']
+    ttk.Label(root,text = f'Pior cenário (25%): {pior} ou menos.').place(relx=0.5, rely=0.76, anchor='center')
+    ttk.Label(root,text = f'Cenário médio (50%): de {pior} a {melhor}.').place(relx=0.5, rely=0.8, anchor='center')
+    ttk.Label(root,text = f'Melhor cenário (25%): {melhor} ou mais.').place(relx=0.5, rely=0.84, anchor='center')
 
 def create_done_window():
     terminate_window()
@@ -81,8 +91,8 @@ def thread_cambio():
     models.predict_cambio()
     create_done_window()
 
-def thread_selic():
-    models.predict_selic()
+def thread_cdi():
+    models.predict_cdi()
     create_done_window()
 
 def forecast_ipca():
@@ -97,10 +107,10 @@ def forecast_cambio():
     thread = threading.Thread(target = thread_cambio)
     thread.start()
 
-def forecast_selic():
+def forecast_cdi():
     terminate_window()
     ttk.Label(root,text = 'Aguarde, a função está sendo executada').place(relx=0.5, rely=0.5, anchor='center')
-    thread = threading.Thread(target = thread_selic)
+    thread = threading.Thread(target = thread_cdi)
     thread.start()
 
 def simulation_done_window(ano,mes):
@@ -144,7 +154,7 @@ def create_forecast_window():
     terminate_window()
     ttk.Button(root, text="Inflação", command=forecast_ipca).place(relx=0.5, rely=0.3, anchor='center')
     ttk.Button(root, text="Câmbio", command=forecast_cambio).place(relx=0.5, rely=0.5, anchor='center')
-    ttk.Button(root, text="Juros", command=forecast_selic).place(relx=0.5, rely=0.7, anchor='center')
+    ttk.Button(root, text="Juros", command=forecast_cdi).place(relx=0.5, rely=0.7, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_upload_window():

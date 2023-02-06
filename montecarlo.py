@@ -29,16 +29,15 @@ def get_current_cambio():
         raise TimeoutError('Erro de conexão com o Banco Central')
     return cy.values.ravel()[-1]
 
-def get_current_selic():
+def get_current_cdi():
     try:
-        dataframe = sgs.get({'selic':432}, start = '2022-01-01')
+        dataframe = sgs.get({'cdi':4391}, start = '2022-01-01')
     except:
         raise TimeoutError('Erro de conexão com o Banco Central')
     return dataframe.values.ravel()[-1]
 
 def find_files(risco):
     records = pd.read_csv('records.csv')
-    global contracts
     try:
         filtered_df = records.loc[[x.find(risco) != -1 for x in records['file_name']]].copy()
         file_names = filtered_df['file_name'].values[-10:]
@@ -62,16 +61,11 @@ def find_datas(index):
     main_dataframe['mes'] = main_dataframe['date'].apply(lambda x: x.split('-')[1])
     os.remove(file_name)
 
-def impact():
-    pass
-
 def simulate(mes,ano):
-    data_final = f'{ano}-{mes}'
-    std = main_dataframe['std'].iloc[0]
-    df_pred = main_dataframe[['date','prediction']].copy()
-    df_pred = df_pred.set_index(pd.to_datetime(df_pred['date'],format = '%Y-%m'))
+    global date_selected
+    global main_dataframe
     global simulation
+    date_selected = pd.to_datetime(f'{ano}-{mes}',format = '%Y-%m')
+    main_dataframe['date'] = pd.to_datetime(main_dataframe['date'],format = '%Y-%m')
+    main_dataframe = main_dataframe.set_index('date')
     simulation = np.random.normal(size = 10000)
-    # contracts = pd.read_excel('Valores_cambio.xlsx')
-    # contracts = contracts.set_index(pd.to_datetime(contracts['data'].apply(lambda x: x[3:]),format = '%m/%Y'))
-    

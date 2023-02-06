@@ -8,3 +8,4 @@ azure-mgmt-resource
 azure-mgmt-datalake-store
 ttkthemes
 pyinstaller
+retry
