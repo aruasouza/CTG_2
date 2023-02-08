@@ -14,6 +14,8 @@ from datetime import datetime
 import re
 from setup import upload_file_to_directory,logfile_name,adlsFileSystemClient
 import montecarlo
+import budget
+import numpy as np
 
 def upload_file(Risco):
     create_upload_window()
@@ -58,20 +60,21 @@ def show_forecast():
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
-def show_simulation():
-    import budget
+def show_simulation(cen_df,mes,ano):
+    date_selected = datetime(int(ano),int(mes),1)
+    cen_df = cen_df[:date_selected]
     fig = Figure(figsize = (5,3),dpi = 100)
     risco = montecarlo.main_info['risco']
-    simulation_data = budget.simulate(risco)
     ax = fig.add_subplot(111)
-    for cenario in simulation_data['cenarios'][:1000]:
-        ax.plot(cenario.index,cenario,alpha = 0.1,color = 'red')
+    for cenario in cen_df.columns[:1000]:
+        ax.plot(cen_df.index,cen_df[cenario],alpha = 0.1,color = 'red')
     ax.set_title(f'Cenários {risco}')
     canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
     canvas.draw()
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
-    pior,melhor = simulation_data['pior'],simulation_data['melhor']
+    row = cen_df.iloc[-1]
+    pior,melhor = int(np.percentile(row.values,25)),int(np.percentile(row.values,75))
     ttk.Label(root,text = f'Pior cenário (25%): {pior} ou menos.').place(relx=0.5, rely=0.76, anchor='center')
     ttk.Label(root,text = f'Cenário médio (50%): de {pior} a {melhor}.').place(relx=0.5, rely=0.8, anchor='center')
     ttk.Label(root,text = f'Melhor cenário (25%): {melhor} ou mais.').place(relx=0.5, rely=0.84, anchor='center')
@@ -95,6 +98,10 @@ def thread_cdi():
     models.predict_cdi()
     create_done_window()
 
+def thread_gsf():
+    models.predict_gsf()
+    create_done_window()
+
 def forecast_ipca():
     terminate_window()
     ttk.Label(root,text = 'Aguarde, a função está sendo executada').place(relx=0.5, rely=0.5, anchor='center')
@@ -113,17 +120,22 @@ def forecast_cdi():
     thread = threading.Thread(target = thread_cdi)
     thread.start()
 
-def simulation_done_window(ano,mes):
+def forecast_gsf():
     terminate_window()
-    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
-    montecarlo.simulate(ano,mes)
-    ttk.Button(root,text = 'Visualizar',command = show_simulation).place(relx=0.5,rely=0.5,anchor='center')
+    ttk.Label(root,text = 'Aguarde, a função está sendo executada').place(relx=0.5, rely=0.5, anchor='center')
+    thread = threading.Thread(target = thread_gsf)
+    thread.start()
 
-def select_mes(ano):
+def simulation_done_window(mes,ano):
+    terminate_window()
+    cen_df = budget.calculate_cenarios(montecarlo.main_info['risco'],montecarlo.main_dataframe)
+    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
+    ttk.Button(root,text = 'Visualizar',command = lambda: show_simulation(cen_df,mes,ano)).place(relx=0.5,rely=0.5,anchor='center')
+
+def select_mes(ano,df):
     terminate_window()
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
     ttk.Button(root,text = 'Voltar',command = lambda: get_file_names(montecarlo.main_info['risco'])).place(relx=0.1,rely=0.2,anchor='center')
-    df = montecarlo.main_dataframe
     menu_mes = Menu(root)
     for mes in df[df['ano'] == ano]['mes']:
         menu_mes.add_command(label = mes,command = lambda mes=mes: simulation_done_window(mes,ano))
@@ -135,9 +147,11 @@ def select_ano(index):
     ttk.Button(root,text = 'Voltar',command = lambda: get_file_names(montecarlo.main_info['risco'])).place(relx=0.1,rely=0.2,anchor='center')
     montecarlo.find_datas(index)
     menu_ano = Menu(root)
-    df = montecarlo.main_dataframe
+    df = montecarlo.main_dataframe.copy()
+    df['ano'] = df['date'].apply(lambda x: x.split('-')[0])
+    df['mes'] = df['date'].apply(lambda x: x.split('-')[1])
     for ano in df['ano'].unique():
-        menu_ano.add_command(label = ano,command = lambda ano=ano: select_mes(ano))
+        menu_ano.add_command(label = ano,command = lambda ano=ano: select_mes(ano,df))
     ttk.Menubutton(root,text = 'Selecionar Ano',menu = menu_ano).place(relx=0.5, rely=0.5, anchor='center')
 
 def get_file_names(risco):
@@ -155,6 +169,7 @@ def create_forecast_window():
     ttk.Button(root, text="Inflação", command=forecast_ipca).place(relx=0.5, rely=0.3, anchor='center')
     ttk.Button(root, text="Câmbio", command=forecast_cambio).place(relx=0.5, rely=0.5, anchor='center')
     ttk.Button(root, text="Juros", command=forecast_cdi).place(relx=0.5, rely=0.7, anchor='center')
+    ttk.Button(root, text="GSF", command=forecast_gsf).place(relx=0.5, rely=0.9, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_upload_window():
@@ -162,6 +177,7 @@ def create_upload_window():
     ttk.Button(root, text="Inflação", command=lambda: upload_file('INFLACAO')).place(relx=0.5, rely=0.3, anchor='center')
     ttk.Button(root, text="Câmbio", command=lambda: upload_file('CAMBIO')).place(relx=0.5, rely=0.5, anchor='center')
     ttk.Button(root, text="Juros", command=lambda: upload_file('JUROS')).place(relx=0.5, rely=0.7, anchor='center')
+    ttk.Button(root, text="GSF", command=lambda: upload_file('GSF')).place(relx=0.5, rely=0.9, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_simulador_window():
@@ -169,6 +185,7 @@ def create_simulador_window():
     ttk.Button(root, text="Inflação", command=lambda: get_file_names('INFLACAO')).place(relx=0.5, rely=0.3, anchor='center')
     ttk.Button(root, text="Câmbio", command=lambda: get_file_names('CAMBIO')).place(relx=0.5, rely=0.5, anchor='center')
     ttk.Button(root, text="Juros", command=lambda: get_file_names('JUROS')).place(relx=0.5, rely=0.7, anchor='center')
+    ttk.Button(root, text="GSF", command=lambda: get_file_names('GSF')).place(relx=0.5, rely=0.9, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_main_window():

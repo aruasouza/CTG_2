@@ -264,9 +264,9 @@ def predict_cambio(test = False,lags = None):
         results = {}
         for anos in lags:
             x_train,y_train = train_test_split(df,cambio,anos)
-            model = RegressionPlusLSTM(y_train,x_train,square).fit(36,12 * anos)
+            model = LSTM(y_train,x_train).fit(72,12 * anos)
             # Calculando o Erro
-            prediction = model.predict(12 * anos,0.6)
+            prediction = model.predict(12 * anos)
             pred_df = cambio.copy()
             pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
             results[anos] = pred_df
@@ -277,8 +277,8 @@ def predict_cambio(test = False,lags = None):
         std = math.sqrt(np.square(np.subtract(pred['cambio'].values,pred['prediction'].values)).mean())
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
-        model = RegressionPlusLSTM(cambio,df,square).fit(36,12 * anos)
-        prediction = model.predict(12 * anos,0.6)
+        model = LSTM(cambio,df).fit(72,12 * anos)
+        prediction = model.predict(12 * anos)
         pred_df = pd.DataFrame({'prediction':prediction},
             index = pd.period_range(start = cambio.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         pred_df['superior'] = [pred + (pred * res_max) for pred in prediction]
@@ -331,6 +331,58 @@ def predict_cdi(test = False,lags = None):
             index = pd.date_range(start = cdi.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         global data_for_plotting
         data_for_plotting = pd.concat([cdi.copy(),plot_df])
+        run_status = 'O forecast foi gerado e enviado com sucesso para a nuvem'
+    except Exception as e:
+        error(e)
+        run_status = e
+
+
+def predict_gsf(test = False,lags = None):
+    global run_status
+    try:
+        mapa_meses = {'jan':1,'fev':2,'mar':3,'abr':4,'mai':5,'jun':6,'jul':7,'ago':8,'set':9,'out':10,'nov':11,'dez':12}
+        new_names = {'Garantia física no centro de gravidade MW médios (GFIS_2p,j)':'Garantia Física',
+            'Geração no Centro de Gravidade - MW médios (Gp,j)':'Geração'}
+        df = pd.read_excel('MRE - Geração x Garantia Física - Mês.xlsx').set_index('Unnamed: 0').T.rename(new_names,axis = 1)
+        df.columns.name = None
+        df = df.reset_index()
+        df['index'] = pd.to_datetime(df['index'].apply(lambda x: str(mapa_meses[x[:3]]) + x[3] + '20' + x[4:]),format = '%m/%Y')
+        df = df.set_index('index')
+        df['gsf'] = df['Geração'] / df['Garantia Física']
+        gsf = df[['gsf']]
+        df = df.drop('gsf',axis = 1)
+        # Treinando o modelo de SELIC
+        if not test:
+            lags = [3]
+        results = {}
+        for anos in lags:
+            x_train,y_train = train_test_split(df,gsf,anos)
+            model = LSTM(y_train,x_train).fit(24,12 * anos)
+            # Calculando o Erro
+            prediction = model.predict(12 * anos)
+            pred_df = gsf.copy()
+            pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
+            results[anos] = pred_df
+        if test:
+            return results
+        pred_df['res'] = (pred_df['gsf'] - pred_df['prediction']).apply(abs)
+        pred = pred_df.dropna()
+        std = math.sqrt(np.square(np.subtract(pred['gsf'].values,pred['prediction'].values)).mean())
+        res_max = pred['res'].max()
+        # Treinando novamente o modelo e calculando o Forecast
+        model = LSTM(gsf,df).fit(24,12 * anos)
+        prediction = model.predict(12 * anos)
+        pred_df = pd.DataFrame({'prediction':prediction},
+            index = pd.period_range(start = gsf.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
+        pred_df['superior'] = [pred + res_max for pred in prediction]
+        pred_df['inferior'] = [pred - res_max for pred in prediction]
+        pred_df['std'] = std
+        # Salvando no Log
+        success('GSF',pred_df)
+        plot_df = pd.DataFrame({'prediction':pred_df['prediction'].values},
+            index = pd.date_range(start = gsf.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
+        global data_for_plotting
+        data_for_plotting = pd.concat([gsf.copy(),plot_df])
         run_status = 'O forecast foi gerado e enviado com sucesso para a nuvem'
     except Exception as e:
         error(e)

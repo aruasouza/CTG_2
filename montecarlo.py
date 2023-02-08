@@ -57,15 +57,4 @@ def find_datas(index):
         overwrite=True, buffersize=4194304, blocksize=4194304)
     global main_dataframe
     main_dataframe = pd.read_csv(file_name)
-    main_dataframe['ano'] = main_dataframe['date'].apply(lambda x: x.split('-')[0])
-    main_dataframe['mes'] = main_dataframe['date'].apply(lambda x: x.split('-')[1])
     os.remove(file_name)
-
-def simulate(mes,ano):
-    global date_selected
-    global main_dataframe
-    global simulation
-    date_selected = pd.to_datetime(f'{ano}-{mes}',format = '%Y-%m')
-    main_dataframe['date'] = pd.to_datetime(main_dataframe['date'],format = '%Y-%m')
-    main_dataframe = main_dataframe.set_index('date')
-    simulation = np.random.normal(size = 10000)
