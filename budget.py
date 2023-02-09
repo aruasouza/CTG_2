@@ -70,6 +70,16 @@ def risco_cambio(cambio,rp):
     cen_df = pd.concat([(risco['USD'] - (risco['prediction'] + sim)) * risco['Repayment'] for sim in simulation],axis = 1)
     return cen_df.cumsum()
 
+def risco_generico(df):
+    size = 10000
+    df['date'] = pd.to_datetime(df['date'],format = '%Y-%m')
+    df = df.set_index('date')
+    std = df['std'].iloc[0]
+    simulation = np.random.normal(size = size) * std
+    cen_df = pd.concat([df['prediction'] + sim for sim in simulation],axis = 1)
+    cen_df.columns = list(range(size))
+    return cen_df
+
 def calculate_cenarios(risco,df_risco = pd.DataFrame()):
     if df_risco.empty:
         df_risco = retrieve_forecast(risco)
@@ -81,6 +91,10 @@ def calculate_cenarios(risco,df_risco = pd.DataFrame()):
         download_files([file_links[1]])
         rp = read_rp()
         cen_df = risco_cambio(df_risco,rp)
+    if risco == 'INFLACAO':
+        cen_df = risco_generico(df_risco)
+    if risco == 'GSF':
+        cen_df = risco_generico(df_risco)
     return cen_df
 
 def calculate_all():
@@ -98,5 +112,3 @@ def calculate_all():
         upload_file(risco,'risco')
         cen_df_resumed.to_csv(f'cenarios_{risco}.csv')
         upload_file(risco,'cenarios')
-
-calculate_all()
