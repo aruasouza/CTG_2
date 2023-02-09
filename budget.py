@@ -17,6 +17,13 @@ def download_files(filenames = file_links):
         except Exception as e:
             print(e)
 
+def upload_file(risco,tipo):
+    file_name = f'{tipo}_{risco}.csv'
+    directory = f'DataLakeRiscoECompliance/RISCOS'
+    multithread.ADLUploader(adlsFileSystemClient, lpath=file_name,
+        rpath=f'{directory}/{risco}/{file_name}', nthreads=64, overwrite=True, buffersize=4194304, blocksize=4194304)
+    os.remove(file_name)
+
 def read_cash_dcf():
     dcf = pd.read_excel("datalake_files/DCF - RP'22 8&04 - Valores.xlsx",sheet_name = 'Budget',header = 5)
     dcf = dcf.loc[~dcf['Unnamed: 1'].isnull()].drop('Unnamed: 0',axis = 1).set_index('Unnamed: 1').T
@@ -35,16 +42,13 @@ def read_rp():
     rp['Period'] = rp['Period'].apply(str)
     return rp
 
-def retrieve_forecasts(riscos = ['INFLACAO','CAMBIO','JUROS','GSF'],index = -1):
-    main_dataframes = {}
-    for risco in riscos:
-        montecarlo.find_files(risco)
-        try:
-            montecarlo.find_datas(-1)
-            main_dataframes[montecarlo.main_info['risco']] = montecarlo.main_dataframe
-        except:
-            pass
-        return main_dataframes
+def retrieve_forecast(risco,index = -1):
+    montecarlo.find_files(risco)
+    try:
+        montecarlo.find_datas(-1)
+        return montecarlo.main_dataframe
+    except Exception as e:
+        print(e)
 
 def risco_juros(selic,dcf):
     size = 10000
@@ -63,12 +67,12 @@ def risco_cambio(cambio,rp):
     std = cambio['std'].iloc[0]
     risco = risco.join(cambio.set_index('date')[['prediction']],on = 'Period')
     simulation = np.random.normal(size = size) * std
-    cen_df = pd.concat([(risco['USD'] - (risco['prediction'] + sim)) * risco['Repayment'] for sim in simulation],axis = 1,names = list(range(size)))
+    cen_df = pd.concat([(risco['USD'] - (risco['prediction'] + sim)) * risco['Repayment'] for sim in simulation],axis = 1)
     return cen_df.cumsum()
 
 def calculate_cenarios(risco,df_risco = pd.DataFrame()):
     if df_risco.empty:
-        df_risco = retrieve_forecasts([risco])
+        df_risco = retrieve_forecast(risco)
     if risco == 'JUROS':
         download_files([file_links[0]])
         dcf = read_cash_dcf()
@@ -79,5 +83,18 @@ def calculate_cenarios(risco,df_risco = pd.DataFrame()):
         cen_df = risco_cambio(df_risco,rp)
     return cen_df
 
-def simulate(mes,ano,cen_df):
-    date_selected = pd.to_datetime(f'{ano}-{mes}',format = '%Y-%m')
+def calculate_all():
+    for risco in ['JUROS','CAMBIO']:
+        cen_df = calculate_cenarios(risco)
+        risc_df = pd.DataFrame(index = cen_df.index)
+        risc_df['probabilidade_de_prejuizo'] = cen_df.apply(lambda x: sum(x < 0) / len(x),axis = 1)
+        risc_df['impacto_mais_provavel'] = cen_df.apply(lambda x: x.mean(),axis = 1)
+        risc_df.index.name = 'data'
+        cen_df_resumed = pd.concat([cen_df.apply(lambda x: np.percentile(x,i),axis = 1) for i in range(1,100)],axis = 1).rename({i:'{}%'.format(i+1) for i in range(99)},axis = 1)
+        risc_df['impacto_5%'] = cen_df_resumed['5%']
+        risc_df.to_csv(f'risco_{risco}.csv')
+        upload_file(risco,'risco')
+        cen_df_resumed.to_csv(f'cenarios_{risco}.csv')
+        upload_file(risco,'cenarios')
+
+calculate_all()
