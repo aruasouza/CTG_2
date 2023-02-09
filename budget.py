@@ -91,7 +91,9 @@ def calculate_all():
         risc_df['impacto_mais_provavel'] = cen_df.apply(lambda x: x.mean(),axis = 1)
         risc_df.index.name = 'data'
         cen_df_resumed = pd.concat([cen_df.apply(lambda x: np.percentile(x,i),axis = 1) for i in range(1,100)],axis = 1).rename({i:'{}%'.format(i+1) for i in range(99)},axis = 1)
-        risc_df['impacto_5%'] = cen_df_resumed['5%']
+        risc_df['worst'] = cen_df_resumed['5%']
+        risc_df['base'] = cen_df_resumed['50%']
+        risc_df['best'] = cen_df_resumed['95%']
         risc_df.to_csv(f'risco_{risco}.csv')
         upload_file(risco,'risco')
         cen_df_resumed.to_csv(f'cenarios_{risco}.csv')
