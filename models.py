@@ -223,6 +223,7 @@ def predict_ipca(test = False,lags = None):
             model = RegressionPlusLSTM(y_train,x_train,square).fit(24,12 * anos)
             # Calculando o Erro
             prediction = model.predict(12 * anos,0.5)
+            prediction = pd.Series(prediction).rolling(6,1).mean().values
             pred_df = ipca.copy()
             pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
             results[anos] = pred_df
@@ -235,6 +236,7 @@ def predict_ipca(test = False,lags = None):
         # Treinando novamente o modelo e calculando o Forecast
         model = RegressionPlusLSTM(ipca,df,square).fit(24,12 * anos)
         prediction = model.predict(12 * anos,0.5)
+        prediction = pd.Series(prediction).rolling(6,1).mean().values
         pred_df = pd.DataFrame({'prediction':prediction},
             index = pd.period_range(start = ipca.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         pred_df['superior'] = [pred + (pred * res_max) for pred in prediction]
@@ -267,6 +269,7 @@ def predict_cambio(test = False,lags = None):
             model = LSTM(y_train,x_train).fit(72,12 * anos)
             # Calculando o Erro
             prediction = model.predict(12 * anos)
+            prediction = pd.Series(prediction).rolling(6,1).mean().values
             pred_df = cambio.copy()
             pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
             results[anos] = pred_df
@@ -279,6 +282,7 @@ def predict_cambio(test = False,lags = None):
         # Treinando novamente o modelo e calculando o Forecast
         model = LSTM(cambio,df).fit(72,12 * anos)
         prediction = model.predict(12 * anos)
+        prediction = pd.Series(prediction).rolling(6,1).mean().values
         pred_df = pd.DataFrame({'prediction':prediction},
             index = pd.period_range(start = cambio.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
         pred_df['superior'] = [pred + (pred * res_max) for pred in prediction]

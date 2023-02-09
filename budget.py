@@ -50,6 +50,11 @@ def retrieve_forecast(risco,index = -1):
     except Exception as e:
         print(e)
 
+def shuffle(arr):
+    new = arr.copy()
+    np.random.shuffle(new)
+    return new
+
 def risco_juros(selic,dcf):
     size = 10000
     dcf['Date'] = dcf.index.to_period('m')
@@ -59,7 +64,7 @@ def risco_juros(selic,dcf):
     risco = risco.join(selic.set_index('date')[['prediction']],on = 'Date')
     simulation = np.random.normal(size = size) * std
     cen_df = pd.concat([(risco['prediction'] + sim) * risco['Cash'] for sim in simulation],axis = 1,names = list(range(size)))
-    return cen_df.cumsum()
+    return cen_df.apply(lambda x: pd.Series(shuffle(x.values),index = x.index),axis = 1).cumsum()
 
 def risco_cambio(cambio,rp):
     size = 10000
@@ -68,7 +73,7 @@ def risco_cambio(cambio,rp):
     risco = risco.join(cambio.set_index('date')[['prediction']],on = 'Period')
     simulation = np.random.normal(size = size) * std
     cen_df = pd.concat([(risco['USD'] - (risco['prediction'] + sim)) * risco['Repayment'] for sim in simulation],axis = 1)
-    return cen_df.cumsum()
+    return cen_df.apply(lambda x: pd.Series(shuffle(x.values),index = x.index),axis = 1).cumsum()
 
 def risco_generico(df):
     size = 10000
@@ -78,7 +83,7 @@ def risco_generico(df):
     simulation = np.random.normal(size = size) * std
     cen_df = pd.concat([df['prediction'] + sim for sim in simulation],axis = 1)
     cen_df.columns = list(range(size))
-    return cen_df
+    return cen_df.apply(lambda x: pd.Series(shuffle(x.values),index = x.index),axis = 1)
 
 def calculate_cenarios(risco,df_risco = pd.DataFrame()):
     if df_risco.empty:
