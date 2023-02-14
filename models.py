@@ -8,6 +8,7 @@ from dateutil.relativedelta import relativedelta
 from scipy.optimize import curve_fit
 from darts import TimeSeries
 from darts.models import BlockRNNModel
+from darts.models import NBEATSModel
 from darts.dataprocessing.transformers import Scaler
 import os
 import time
@@ -149,6 +150,34 @@ class LSTM:
         prediction_final = converted_prediction - difference
         return prediction_final
 
+class NBEATS:
+    def __init__(self,main_serie,extra_series):
+        self.last = main_serie.values[-1]
+        self.data = TimeSeries.from_dataframe(main_serie)
+        self.extra_data = TimeSeries.from_dataframe(extra_series)
+        self.scaler_y = Scaler()
+        self.transformed_data = self.scaler_y.fit_transform(self.data)
+        self.scaler_x = Scaler()
+        self.transformed_extra_data = self.scaler_x.fit_transform(self.extra_data)
+    def fit(self,input_size,output_size):
+        self.model_cov = NBEATSModel(
+            input_chunk_length = input_size,
+            output_chunk_length = output_size,
+            n_epochs = 50
+        )
+        self.model_cov.fit(
+            series = self.transformed_data,
+            past_covariates = self.transformed_extra_data,
+            verbose = False,
+        )
+        return self
+    def predict(self,n):
+        prediction = self.model_cov.predict(n = n,series = self.transformed_data, past_covariates = self.transformed_extra_data)
+        converted_prediction = self.scaler_y.inverse_transform(prediction).values().ravel()
+        difference = converted_prediction[0] - self.last
+        prediction_final = converted_prediction - difference
+        return prediction_final
+
 # Função otilizada para aproximar a curva de câmbio
 def simple_square(x,a):
     return (x ** 2) * a
@@ -266,7 +295,7 @@ def predict_cambio(test = False,lags = None):
         results = {}
         for anos in lags:
             x_train,y_train = train_test_split(df,cambio,anos)
-            model = LSTM(y_train,x_train).fit(72,12 * anos)
+            model = NBEATS(y_train,x_train).fit(72,12 * anos)
             # Calculando o Erro
             prediction = model.predict(12 * anos)
             prediction = pd.Series(prediction).rolling(6,1).mean().values
@@ -280,7 +309,7 @@ def predict_cambio(test = False,lags = None):
         std = math.sqrt(np.square(np.subtract(pred['cambio'].values,pred['prediction'].values)).mean())
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
-        model = LSTM(cambio,df).fit(72,12 * anos)
+        model = NBEATS(cambio,df).fit(72,12 * anos)
         prediction = model.predict(12 * anos)
         prediction = pd.Series(prediction).rolling(6,1).mean().values
         pred_df = pd.DataFrame({'prediction':prediction},

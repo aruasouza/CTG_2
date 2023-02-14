@@ -164,28 +164,32 @@ def get_file_names(risco):
         menu.add_command(label = info['full_strings'][i],command = lambda i=i: select_ano(i))
     ttk.Menubutton(root,text = 'Selecionar Arquivo',menu = menu).place(relx=0.5, rely=0.5, anchor='center')
 
+def do_trading():
+    pass
+
 def create_forecast_window():
     terminate_window()
     ttk.Button(root, text="Inflação", command=forecast_ipca).place(relx=0.5, rely=0.3, anchor='center')
-    ttk.Button(root, text="Câmbio", command=forecast_cambio).place(relx=0.5, rely=0.5, anchor='center')
-    ttk.Button(root, text="Juros", command=forecast_cdi).place(relx=0.5, rely=0.7, anchor='center')
-    ttk.Button(root, text="GSF", command=forecast_gsf).place(relx=0.5, rely=0.9, anchor='center')
+    ttk.Button(root, text="Câmbio", command=forecast_cambio).place(relx=0.5, rely=0.4, anchor='center')
+    ttk.Button(root, text="Juros", command=forecast_cdi).place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Button(root, text="GSF", command=forecast_gsf).place(relx=0.5, rely=0.6, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_upload_window():
     terminate_window()
     ttk.Button(root, text="Inflação", command=lambda: upload_file('INFLACAO')).place(relx=0.5, rely=0.3, anchor='center')
-    ttk.Button(root, text="Câmbio", command=lambda: upload_file('CAMBIO')).place(relx=0.5, rely=0.5, anchor='center')
-    ttk.Button(root, text="Juros", command=lambda: upload_file('JUROS')).place(relx=0.5, rely=0.7, anchor='center')
-    ttk.Button(root, text="GSF", command=lambda: upload_file('GSF')).place(relx=0.5, rely=0.9, anchor='center')
+    ttk.Button(root, text="Câmbio", command=lambda: upload_file('CAMBIO')).place(relx=0.5, rely=0.4, anchor='center')
+    ttk.Button(root, text="Juros", command=lambda: upload_file('JUROS')).place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Button(root, text="GSF", command=lambda: upload_file('GSF')).place(relx=0.5, rely=0.6, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_simulador_window():
     terminate_window()
     ttk.Button(root, text="Inflação", command=lambda: get_file_names('INFLACAO')).place(relx=0.5, rely=0.3, anchor='center')
-    ttk.Button(root, text="Câmbio", command=lambda: get_file_names('CAMBIO')).place(relx=0.5, rely=0.5, anchor='center')
-    ttk.Button(root, text="Juros", command=lambda: get_file_names('JUROS')).place(relx=0.5, rely=0.7, anchor='center')
-    ttk.Button(root, text="GSF", command=lambda: get_file_names('GSF')).place(relx=0.5, rely=0.9, anchor='center')
+    ttk.Button(root, text="Câmbio", command=lambda: get_file_names('CAMBIO')).place(relx=0.5, rely=0.4, anchor='center')
+    ttk.Button(root, text="Juros", command=lambda: get_file_names('JUROS')).place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Button(root, text="GSF", command=lambda: get_file_names('GSF')).place(relx=0.5, rely=0.6, anchor='center')
+    ttk.Button(root, text="Trading", command=do_trading).place(relx=0.5, rely=0.7, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_main_window():
