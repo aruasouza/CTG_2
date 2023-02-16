@@ -1,3 +1,2 @@
-Integrar o modelo de preço de energia no app
-alterar os modelos de preço de energia e GSF pra puxarem os dados do datalake
 criar o modelo de cálculo para IPCA e CDI
+salvar modelos e erros

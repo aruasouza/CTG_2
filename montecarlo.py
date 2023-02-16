@@ -58,3 +58,9 @@ def find_datas(index):
     global main_dataframe
     main_dataframe = pd.read_csv(file_name)
     os.remove(file_name)
+
+def trading():
+    global main_dataframe
+    global main_info
+    main_dataframe = pd.DataFrame({'a':['a']})
+    main_info = {'risco':'TRADING'}

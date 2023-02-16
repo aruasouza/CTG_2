@@ -141,6 +141,15 @@ def select_mes(ano,df):
         menu_mes.add_command(label = mes,command = lambda mes=mes: simulation_done_window(mes,ano))
     ttk.Menubutton(root,text = 'Selecionar Mês',menu = menu_mes).place(relx=0.5, rely=0.5, anchor='center')
 
+def select_mes_trading(ano,df):
+    terminate_window()
+    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
+    ttk.Button(root,text = 'Voltar',command = select_ano_trading).place(relx=0.1,rely=0.2,anchor='center')
+    menu_mes = Menu(root)
+    for mes in df[df['ano'] == ano]['mes']:
+        menu_mes.add_command(label = mes,command = lambda mes=mes: simulation_done_window(mes,ano))
+    ttk.Menubutton(root,text = 'Selecionar Mês',menu = menu_mes).place(relx=0.5, rely=0.5, anchor='center')
+
 def select_ano(index):
     terminate_window()
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
@@ -154,6 +163,18 @@ def select_ano(index):
         menu_ano.add_command(label = ano,command = lambda ano=ano: select_mes(ano,df))
     ttk.Menubutton(root,text = 'Selecionar Ano',menu = menu_ano).place(relx=0.5, rely=0.5, anchor='center')
 
+def select_ano_trading():
+    terminate_window()
+    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
+    montecarlo.trading()
+    df = budget.create_trading_info()
+    df['ano'] = df.index.year
+    df['mes'] = df.index.month
+    menu_ano = Menu(root)
+    for ano in df['ano'].unique():
+        menu_ano.add_command(label = ano,command = lambda ano=ano: select_mes_trading(ano,df))
+    ttk.Menubutton(root,text = 'Selecionar Ano',menu = menu_ano).place(relx=0.5, rely=0.5, anchor='center')
+
 def get_file_names(risco):
     terminate_window()
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
@@ -163,9 +184,6 @@ def get_file_names(risco):
     for i in range(info['size'] - 1,-1,-1):
         menu.add_command(label = info['full_strings'][i],command = lambda i=i: select_ano(i))
     ttk.Menubutton(root,text = 'Selecionar Arquivo',menu = menu).place(relx=0.5, rely=0.5, anchor='center')
-
-def do_trading():
-    pass
 
 def create_forecast_window():
     terminate_window()
@@ -189,7 +207,7 @@ def create_simulador_window():
     ttk.Button(root, text="Câmbio", command=lambda: get_file_names('CAMBIO')).place(relx=0.5, rely=0.4, anchor='center')
     ttk.Button(root, text="Juros", command=lambda: get_file_names('JUROS')).place(relx=0.5, rely=0.5, anchor='center')
     ttk.Button(root, text="GSF", command=lambda: get_file_names('GSF')).place(relx=0.5, rely=0.6, anchor='center')
-    ttk.Button(root, text="Trading", command=do_trading).place(relx=0.5, rely=0.7, anchor='center')
+    ttk.Button(root, text="Trading", command=select_ano_trading).place(relx=0.5, rely=0.7, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_main_window():

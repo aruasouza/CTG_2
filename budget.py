@@ -88,11 +88,11 @@ def risco_generico(df):
 
 def risco_trading():
     size = 10000
-    mapa = {'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,'julho':7,'agosto':8,'setembro':9,'outubro':10,'novembro':11,'dezembro':12}
-    df = pd.read_excel('Média Mensal Comercial por Submercado.xlsx',header = 1,index_col = 'Submercado').T.reset_index()
-    df['index'] = df['index'].apply(lambda x: datetime(int(x.split()[2]),mapa[x.split()[0]],1))
-    df = df.set_index('index')
-    df.columns.name = None
+    multithread.ADLDownloader(adlsFileSystemClient, lpath='preco_energia.csv', 
+        rpath='DataLakeRiscoECompliance/DadosEnergiaCCEE/preco_energia.csv', nthreads=64, 
+        overwrite=True, buffersize=4194304, blocksize=4194304)
+    df = pd.read_csv('preco_energia.csv',index_col = 'index',parse_dates = True)
+    os.remove('preco_energia.csv')
     new = df.apply(lambda x: x.mean(),axis = 1).to_frame().rename({0:'energy'},axis = 1).copy()
     new_mean = new['energy'].mean()
     vales = new.apply(lambda x: x['energy'] if new_mean > x['energy'] else None,axis = 1)
@@ -135,6 +135,16 @@ def risco_trading():
         simulator = simulate(last,60)
         sims.append(pd.Series([x for x in simulator]))
     return pd.concat(sims,axis = 1).set_index(datetime_index)
+
+def create_trading_info():
+    multithread.ADLDownloader(adlsFileSystemClient, lpath='preco_energia.csv', 
+        rpath='DataLakeRiscoECompliance/DadosEnergiaCCEE/preco_energia.csv', nthreads=64, 
+        overwrite=True, buffersize=4194304, blocksize=4194304)
+    df = pd.read_csv('preco_energia.csv',index_col = 'index',parse_dates = True)
+    os.remove('preco_energia.csv')
+    datetime_index = pd.date_range(start = df.index[-1] + relativedelta(months = 1),periods = 60,freq = 'm')
+    df = pd.DataFrame({'std':[0] * len(datetime_index)},index = datetime_index)
+    return df
 
 def calculate_cenarios(risco,df_risco = pd.DataFrame()):
     if df_risco.empty:

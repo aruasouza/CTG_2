@@ -120,6 +120,16 @@ def get_indicators_cdi(start_date):
     dataframe = dataframe.resample('m').mean()
     return dataframe.iloc[:-1]
 
+@retry(TimeoutError,tries = 5,delay = 1)
+def get_indicators_gsf():
+    multithread.ADLDownloader(adlsFileSystemClient, lpath='gsf.csv', 
+        rpath='DataLakeRiscoECompliance/DadosEnergiaCCEE/gsf.csv', nthreads=64, 
+        overwrite=True, buffersize=4194304, blocksize=4194304)
+    df = pd.read_csv('gsf.csv',index_col = 'index',parse_dates = True)
+    os.remove('gsf.csv')
+    df['gsf'] = df['Geração'] / df['Garantia Física']
+    return df
+
 # Classe utilizada para criar o modelo LSTM (IPCA)
 class LSTM:
     def __init__(self,main_serie,extra_series):
@@ -369,19 +379,10 @@ def predict_cdi(test = False,lags = None):
         error(e)
         run_status = e
 
-
 def predict_gsf(test = False,lags = None):
     global run_status
     try:
-        mapa_meses = {'jan':1,'fev':2,'mar':3,'abr':4,'mai':5,'jun':6,'jul':7,'ago':8,'set':9,'out':10,'nov':11,'dez':12}
-        new_names = {'Garantia física no centro de gravidade MW médios (GFIS_2p,j)':'Garantia Física',
-            'Geração no Centro de Gravidade - MW médios (Gp,j)':'Geração'}
-        df = pd.read_excel('MRE - Geração x Garantia Física - Mês.xlsx').set_index('Unnamed: 0').T.rename(new_names,axis = 1)
-        df.columns.name = None
-        df = df.reset_index()
-        df['index'] = pd.to_datetime(df['index'].apply(lambda x: str(mapa_meses[x[:3]]) + x[3] + '20' + x[4:]),format = '%m/%Y')
-        df = df.set_index('index')
-        df['gsf'] = df['Geração'] / df['Garantia Física']
+        df = get_indicators_gsf()
         gsf = df[['gsf']]
         df = df.drop('gsf',axis = 1)
         # Treinando o modelo de SELIC
