@@ -110,25 +110,34 @@ def forecast_ipca():
 
 def forecast_cambio():
     terminate_window()
-    ttk.Label(root,text = 'Aguarde, a função está sendo executada').place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Label(root,text = 'Calculando. Isso pode levar alguns minutos.').place(relx=0.5, rely=0.5, anchor='center')
     thread = threading.Thread(target = thread_cambio)
     thread.start()
 
 def forecast_cdi():
     terminate_window()
-    ttk.Label(root,text = 'Aguarde, a função está sendo executada').place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Label(root,text = 'Calculando. Isso pode levar alguns minutos.').place(relx=0.5, rely=0.5, anchor='center')
     thread = threading.Thread(target = thread_cdi)
     thread.start()
 
 def forecast_gsf():
     terminate_window()
-    ttk.Label(root,text = 'Aguarde, a função está sendo executada').place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Label(root,text = 'Calculando. Isso pode levar alguns minutos.').place(relx=0.5, rely=0.5, anchor='center')
     thread = threading.Thread(target = thread_gsf)
     thread.start()
 
-def simulation_done_window(mes,ano):
+def calcular_cenarios(mes,ano):
     terminate_window()
+    ttk.Label(root,text = 'Calculando. Isso pode levar alguns minutos.').place(relx=0.5, rely=0.5, anchor='center')
+    thread = threading.Thread(target = lambda: thread_cenarios(mes,ano))
+    thread.start()
+
+def thread_cenarios(mes,ano):
     cen_df = budget.calculate_cenarios(montecarlo.main_info['risco'],montecarlo.main_dataframe)
+    simulation_done_window(mes,ano,cen_df)
+
+def simulation_done_window(mes,ano,cen_df):
+    terminate_window()
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
     ttk.Button(root,text = 'Visualizar',command = lambda: show_simulation(cen_df,mes,ano)).place(relx=0.5,rely=0.5,anchor='center')
 
@@ -138,7 +147,7 @@ def select_mes(ano,df):
     ttk.Button(root,text = 'Voltar',command = lambda: get_file_names(montecarlo.main_info['risco'])).place(relx=0.1,rely=0.2,anchor='center')
     menu_mes = Menu(root)
     for mes in df[df['ano'] == ano]['mes']:
-        menu_mes.add_command(label = mes,command = lambda mes=mes: simulation_done_window(mes,ano))
+        menu_mes.add_command(label = mes,command = lambda mes=mes: calcular_cenarios(mes,ano))
     ttk.Menubutton(root,text = 'Selecionar Mês',menu = menu_mes).place(relx=0.5, rely=0.5, anchor='center')
 
 def select_mes_trading(ano,df):
@@ -147,7 +156,7 @@ def select_mes_trading(ano,df):
     ttk.Button(root,text = 'Voltar',command = select_ano_trading).place(relx=0.1,rely=0.2,anchor='center')
     menu_mes = Menu(root)
     for mes in df[df['ano'] == ano]['mes']:
-        menu_mes.add_command(label = mes,command = lambda mes=mes: simulation_done_window(mes,ano))
+        menu_mes.add_command(label = mes,command = lambda mes=mes: calcular_cenarios(mes,ano))
     ttk.Menubutton(root,text = 'Selecionar Mês',menu = menu_mes).place(relx=0.5, rely=0.5, anchor='center')
 
 def select_ano(index):

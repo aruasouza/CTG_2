@@ -35,13 +35,12 @@ def composed_interest(days,values):
     return np.array(results) - 1
 
 def read_cash_dcf():
-    # dcf = pd.read_excel("datalake_files/DCF - RP'22 8&04 - Valores.xlsx",sheet_name = 'Budget',header = 5)
-    # dcf = dcf.loc[~dcf['Unnamed: 1'].isnull()].drop('Unnamed: 0',axis = 1).set_index('Unnamed: 1').T
-    # dcf.columns.name = None
-    # dcf = dcf[list(map(lambda x: type(x) == datetime.datetime,dcf.index.values))]
-    # serie_selic = dcf[['Cash Accumulated Available']].rename({'Cash Accumulated Available':'Cash'},axis = 1) * 100
-    # serie_selic = serie_selic.set_index(pd.DatetimeIndex(serie_selic.index))
-    # return serie_selic[datetime.datetime.today():]
+    dcf = pd.read_excel("datalake_files/DCF - RP'22 8&04 - Valores.xlsx",sheet_name = 'Budget',header = 5)
+    dcf = dcf.loc[~dcf['Unnamed: 1'].isnull()].drop('Unnamed: 0',axis = 1).set_index('Unnamed: 1').T
+    dcf.columns.name = None
+    dcf = dcf[list(map(lambda x: type(x) == datetime.datetime,dcf.index.values))]
+    serie_selic = dcf[['Cash Accumulated Available']].rename({'Cash Accumulated Available':'Cash'},axis = 1) * 100
+    serie_selic = serie_selic.set_index(pd.DatetimeIndex(serie_selic.index))
     arquivo = 'datalake_files/09 Debt vs Setembro 2022 - RP - Budget 2023.xlsx'
     dfs = []
     messages = []
@@ -67,7 +66,7 @@ def read_cash_dcf():
         except ValueError as e:
             print(e)
             messages.append(f'{i}ª Emissão CDI: ' + str(e))
-    return dfs
+    return dfs,serie_selic[datetime.datetime.today():]
 
 def read_rp():
     rp = pd.read_excel('datalake_files/09 Debt vs Setembro 2022 - RP - Budget 2023.xlsx',sheet_name = 'Daily Calculation prop2019',header = 2)
@@ -78,7 +77,36 @@ def read_rp():
     rp['Period'] = rp['Period'].apply(str)
     return rp
 
-def retrieve_forecast(risco,index = -1):
+def read_deb_ipca():
+    arquivo = 'datalake_files/09 Debt vs Setembro 2022 - RP - Budget 2023.xlsx'
+    positions = (15,14)
+    dfs = []
+    for i in range(2):
+        emissao = i + 1
+        df = pd.read_excel(arquivo,sheet_name = f'{emissao}ª Emissão IPCA',header = 6)
+        df = df[df['Filtro'] == 'X'][['Date','IPCA','Interest','Monetary Variation',' Principal Balance']]
+        df['Date'] = pd.to_datetime(df['Date'],format = '%d%m%Y')
+        raw = pd.read_excel(arquivo,sheet_name = f'{emissao}ª Emissão IPCA')
+        total = raw.iloc[0,positions[i]]
+        juros = raw.iloc[4,positions[i]]
+        del(raw)
+        df['Taxa'] = juros
+        df['Capital'] = total
+        df['Days Dif'] = df['Date'].diff().apply(lambda x: x.days).fillna(30)
+        df = df[df['Days Dif'] <= 1]
+        df['Monetary Variation'] = df['Monetary Variation'].fillna(0)
+        subtract = 0
+        for i in df.index:
+            if df.loc[i,'Days Dif'] == 1:
+                subtract += df.loc[i,'Interest']
+            df.loc[i,'Capital'] -= subtract
+        df = df[df['Days Dif'] != 1]
+        df['Capital Dif'] = df['Capital'].diff().fillna(0).cumsum()
+        df['Período'] = df['Date'].apply(lambda x: str(x.year) + '-' + str(x.month))
+        dfs.append(df)
+    return dfs
+
+def retrieve_forecast(risco):
     montecarlo.find_files(risco)
     try:
         montecarlo.find_datas(-1)
@@ -96,17 +124,22 @@ def sum_series(*args):
 
 def risco_juros(selic,dcf):
     size = 10000
-    selic['Período'] = selic['date'].apply(lambda x: x[:5] + str(int(x[5:])))
-    selic = selic.set_index('Período')
-    first_date = pd.to_datetime(selic['date'].iloc[0],format = '%Y-%m')
-    # dcf['Date'] = dcf.index.to_period('m')
-    # dcf['Date'] = dcf['Date'].apply(str)
-    # risco = dcf.copy()
-    # risco = risco.join(selic.set_index('date')[['prediction']],on = 'Date')
-    # return cen_df.apply(lambda x: pd.Series(shuffle(x.values),index = x.index),axis = 1).cumsum()
     std = selic['std'].iloc[0]
-    cen_df = pd.concat([(selic['prediction'].rename(i) + np.random.normal(scale = std,size = len(selic))) for i in range(size)],axis = 1,names = list(range(size)))
-    dfs = dcf
+    selic['Período'] = selic['date'].apply(lambda x: x[:5] + str(int(x[5:])))
+    date_range = pd.to_datetime(selic['date'],format = '%Y-%m')
+    selic = selic.set_index('Período')
+    cen_df = pd.concat([(selic['prediction'].rename(i) + pd.Series(np.random.normal(scale = std,size = len(selic)),index = selic.index)) for i in range(size)],axis = 1)
+    first_date = date_range[0]
+
+    # Caixa
+    budg = dcf[1]
+    budg = budg[first_date:].copy()
+    budg['Date'] = pd.Series(budg.index).apply(lambda x: str(x.year) + '-' + str(x.month)).values
+    budg = budg.set_index('Date')
+    cen_caixa = pd.concat([budg['Cash'].rename(i) * (cen_df[i] / 100) for i in cen_df.columns],axis = 1).fillna(0).cumsum().set_index(date_range)
+
+    # Debentures
+    dfs = dcf[0]
     for i,df in enumerate(dfs):
         df = df[df['Data'] >= first_date].copy()
         df['Despesa Estimada'] = df['Juros Estimados'].cumsum()
@@ -134,7 +167,44 @@ def risco_juros(selic,dcf):
         if len(cenarios) % 100 == 0:
             print(len(cenarios))
     final = pd.concat(cenarios,axis = 1)
-    return final.set_index(pd.to_datetime(final.index,format = '%Y-%m'))
+    final = pd.DataFrame(index = date_range).join(final.set_index(pd.to_datetime(final.index,format = '%Y-%m'))).fillna(method = 'ffill').fillna(0)
+    return final + cen_caixa
+
+def risco_ipca(ipca,dfs):
+    size = 10000
+    std = ipca['std'].iloc[0]
+    ipca['Período'] = ipca['date'].apply(lambda x: x[:5] + str(int(x[5:])))
+    date_range = pd.to_datetime(ipca['date'],format = '%Y-%m')
+    first_date = date_range[0]
+    ipca = ipca.set_index('Período')
+    cen_df = pd.concat([(ipca['prediction'].rename(i) + pd.Series(np.random.normal(scale = std,size = len(ipca)),index = ipca.index)) for i in range(size)],axis = 1)
+    print(cen_df)
+    cenarios = []
+    for col in cen_df.columns:
+        cenario = cen_df[[col]]
+        parciais = []
+        for df in dfs:
+            temp = df.join(cenario,on = 'Período')
+            temp[col] = temp[col].fillna(temp['IPCA'])
+            total = temp['Capital'].iloc[0]
+            juros = temp['Taxa'].iloc[0]
+            juros_semestral = ((1 + (juros / 100)) ** (1/2)) - 1
+            ipca_base = (temp['Capital'].iloc[0] / temp[' Principal Balance'].iloc[0]) * temp[col].iloc[0]
+            temp['Principal Balance Calculado'] = (total * temp[col] / ipca_base) + (temp['Capital Dif'] * temp[col] / ipca_base)
+            temp['Interest Calculado'] = temp['Principal Balance Calculado'] * juros_semestral
+            faltante = (total + sum(temp['Capital'].diff().dropna())) * (-1)
+            temp['Monetary Variation Calculado'] = temp['Capital'].diff().apply(lambda x: None if x == 0 else x).fillna(method = 'bfill').fillna(faltante) * (-1) * ((temp['IPCA'] / ipca_base) - 1) * temp['Monetary Variation'].apply(lambda x: 1 if x > 0 else 0)
+            temp = temp[temp['Date'] >= first_date]
+            temp['Despesa Acumulada'] = (temp['Interest'] + temp['Monetary Variation']).cumsum()
+            temp['Despesa Acumulada Calculado'] = (temp['Interest Calculado'] + temp['Monetary Variation Calculado']).cumsum()
+            temp['Impacto'] = temp['Despesa Acumulada'] - temp['Despesa Acumulada Calculado']
+            parciais.append(temp.set_index('Período')['Impacto'])
+        cenarios.append(sum_series(*parciais))
+        if len(cenarios) % 100 == 0:
+            print(len(cenarios))
+    final = pd.concat(cenarios,axis = 1)
+    final = pd.DataFrame(index = date_range).join(final.set_index(pd.to_datetime(final.index,format = '%Y-%m'))).fillna(method = 'ffill').fillna(0)
+    return final
 
 def risco_cambio(cambio,rp):
     size = 10000
@@ -219,15 +289,16 @@ def calculate_cenarios(risco,df_risco = pd.DataFrame()):
     if df_risco.empty:
         df_risco = retrieve_forecast(risco)
     if risco == 'JUROS':
-        download_files([file_links[0]])
+        # download_files([file_links[0]])
         dcf = read_cash_dcf()
         cen_df = risco_juros(df_risco,dcf)
     if risco == 'CAMBIO':
-        download_files([file_links[1]])
+        # download_files([file_links[1]])
         rp = read_rp()
         cen_df = risco_cambio(df_risco,rp)
     if risco == 'INFLACAO':
-        cen_df = risco_generico(df_risco)
+        dfs = read_deb_ipca()
+        cen_df = risco_ipca(df_risco,dfs)
     if risco == 'GSF':
         cen_df = risco_generico(df_risco)
     if risco == 'TRADING':
@@ -235,7 +306,7 @@ def calculate_cenarios(risco,df_risco = pd.DataFrame()):
     return cen_df
 
 def calculate_all():
-    for risco in ['JUROS','CAMBIO']:
+    for risco in ['JUROS','CAMBIO','INFLACAO']:
         cen_df = calculate_cenarios(risco)
         risc_df = pd.DataFrame(index = cen_df.index)
         risc_df['probabilidade_de_prejuizo'] = cen_df.apply(lambda x: sum(x < 0) / len(x),axis = 1)
