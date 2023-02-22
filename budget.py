@@ -178,7 +178,6 @@ def risco_ipca(ipca,dfs):
     first_date = date_range[0]
     ipca = ipca.set_index('Período')
     cen_df = pd.concat([(ipca['prediction'].rename(i) + pd.Series(np.random.normal(scale = std,size = len(ipca)),index = ipca.index)) for i in range(size)],axis = 1)
-    print(cen_df)
     cenarios = []
     for col in cen_df.columns:
         cenario = cen_df[[col]]
