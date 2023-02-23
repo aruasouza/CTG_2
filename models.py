@@ -15,6 +15,7 @@ import time
 from azure.datalake.store import multithread
 from setup import logfile_name,adlsFileSystemClient,upload_file_to_directory
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from retry import retry
 
 # Função que devolve o error e concatena no arquivo de log
@@ -129,6 +130,25 @@ def get_indicators_gsf():
     os.remove('gsf.csv')
     df['gsf'] = df['Geração'] / df['Garantia Física']
     return df
+
+class Forest:
+    def __init__(self,df):
+        df = df.copy()
+        self.last_date = df.index[-1]
+        df['mes'] = df.index.month
+        df['quarter'] = df.index.quarter
+        ger,gf = df['Geração'].values,df['Garantia Física'].values
+        x = df[['mes','quarter']].values
+        self.model_ger = RandomForestRegressor(max_depth=10).fit(x,ger)
+        self.model_gf = RandomForestRegressor(max_depth=10).fit(x,gf)
+    def predict(self,n):
+        date_range = pd.date_range(start = self.last_date + relativedelta(months = 1),periods = n,freq = 'MS')
+        df = pd.DataFrame(index = date_range)
+        df['mes'] = df.index.month
+        df['quarter'] = df.index.quarter
+        x_fut = df.values
+        df['prediction'] = self.model_ger.predict(x_fut) / self.model_gf.predict(x_fut)
+        return df['prediction'].values
 
 # Classe utilizada para criar o modelo LSTM (IPCA)
 class LSTM:
@@ -390,8 +410,8 @@ def predict_gsf(test = False,lags = None):
             lags = [3]
         results = {}
         for anos in lags:
-            x_train,y_train = train_test_split(df,gsf,anos)
-            model = LSTM(y_train,x_train).fit(24,12 * anos)
+            y_train = df.iloc[:-anos * 12]
+            model = Forest(y_train)
             # Calculando o Erro
             prediction = model.predict(12 * anos)
             pred_df = gsf.copy()
@@ -404,7 +424,7 @@ def predict_gsf(test = False,lags = None):
         std = math.sqrt(np.square(np.subtract(pred['gsf'].values,pred['prediction'].values)).mean())
         res_max = pred['res'].max()
         # Treinando novamente o modelo e calculando o Forecast
-        model = LSTM(gsf,df).fit(24,12 * anos)
+        model = Forest(df)
         prediction = model.predict(12 * anos)
         pred_df = pd.DataFrame({'prediction':prediction},
             index = pd.period_range(start = gsf.index[-1] + relativedelta(months = 1),periods = len(prediction),freq = 'M'))
