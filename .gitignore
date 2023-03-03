@@ -1,0 +1,9 @@
+venv
+__pycache__
+activate_venv.txt
+output
+datalake_files
+cambiomodel.pt.ckpt
+ipcamodel.pt.ckpt
+datalake_files
+.ipynb_checkpoints

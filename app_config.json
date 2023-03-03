@@ -1,0 +1,129 @@
+{
+ "version": "auto-py-to-exe-configuration_v1",
+ "pyinstallerOptions": [
+  {
+   "optionDest": "noconfirm",
+   "value": true
+  },
+  {
+   "optionDest": "filenames",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/main.py"
+  },
+  {
+   "optionDest": "onefile",
+   "value": false
+  },
+  {
+   "optionDest": "console",
+   "value": true
+  },
+  {
+   "optionDest": "ascii",
+   "value": false
+  },
+  {
+   "optionDest": "clean_build",
+   "value": false
+  },
+  {
+   "optionDest": "strip",
+   "value": false
+  },
+  {
+   "optionDest": "noupx",
+   "value": false
+  },
+  {
+   "optionDest": "disable_windowed_traceback",
+   "value": false
+  },
+  {
+   "optionDest": "embed_manifest",
+   "value": true
+  },
+  {
+   "optionDest": "uac_admin",
+   "value": false
+  },
+  {
+   "optionDest": "uac_uiaccess",
+   "value": false
+  },
+  {
+   "optionDest": "win_private_assemblies",
+   "value": false
+  },
+  {
+   "optionDest": "win_no_prefer_redirects",
+   "value": false
+  },
+  {
+   "optionDest": "bootloader_ignore_signals",
+   "value": false
+  },
+  {
+   "optionDest": "argv_emulation",
+   "value": false
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/budget.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/cambiomodel.pt;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/cambiomodel.pt.ckpt;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/ipcamodel.pt;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/ipcamodel.pt.ckpt;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/models.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/montecarlo.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/setup.py;."
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/aruav/Desktop/Deepen/CTG/prototipe_app/datalake_files;datalake_files/"
+  },
+  {
+   "optionDest": "collect_submodules",
+   "value": "sklearn"
+  },
+  {
+   "optionDest": "collect_all",
+   "value": "xgboost"
+  },
+  {
+   "optionDest": "collect_all",
+   "value": "prophet"
+  },
+  {
+   "optionDest": "collect_all",
+   "value": "lightning_fabric"
+  },
+  {
+   "optionDest": "collect_all",
+   "value": "pytorch_lightning"
+  }
+ ],
+ "nonPyinstallerOptions": {
+  "increaseRecursionLimit": true,
+  "manualArguments": ""
+ }
+}

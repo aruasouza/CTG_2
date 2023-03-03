@@ -1,0 +1,11 @@
+pandas
+numpy
+python-bcb
+fredapi
+darts
+azure-datalake-store
+azure-mgmt-resource
+azure-mgmt-datalake-store
+ttkthemes
+pyinstaller
+retry
