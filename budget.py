@@ -140,15 +140,40 @@ def read_deb_ipca():
 def read_contracts():
     arquivo = 'datalake_files/2021_01_05_12_14_56_wbc.json'
     df = pd.DataFrame.from_records(json.loads(open(arquivo,'r',encoding = 'utf-8').read())['Values'])
-    df = df[['ReajusteDataBase','Competencia','DataParcela1','QuantSolicitada','Valor','ValorReajustado']].dropna()
-    df['ReajusteDataBase'],df['Competencia'],df['DataParcela1'] = pd.to_datetime(df['ReajusteDataBase']).apply(lambda x: pd.Period(x,'M')),pd.to_datetime(df['Competencia']).apply(lambda x: pd.Period(x,'M')),pd.to_datetime(df['DataParcela1']).apply(lambda x: pd.Period(x,'M'))
+    df = df[['ReajusteDataBase','Competencia','QuantSolicitada','Valor','ValorReajustado']].dropna()
+    df['ReajusteDataBase'],df['Competencia'] = pd.to_datetime(df['ReajusteDataBase']).apply(lambda x: pd.Period(x,'M')),pd.to_datetime(df['Competencia']).apply(lambda x: pd.Period(x,'M'))
     df['UltimoReajuste'] = df.apply(ultimo_reajuste,axis = 1)
     df['Valor'] = df['Valor'].apply(float)
     df['Total'] = df['QuantSolicitada'] * df['ValorReajustado']
     ipca = sgs.get({'ipca':433},start = '2000-01-01')
     ipca['ipca'] = [valor for valor in absolute(ipca['ipca'].values,1598.41)]
     ipca = ipca.set_index(ipca.index.to_period('M'))
-    df = df.join(ipca,on = 'ReajusteDataBase')
+    df = df.join(ipca,on = 'UltimoReajuste')
+    df = df.join(ipca,on = 'ReajusteDataBase',rsuffix = '_base')
+
+    # Parte LCA
+    lca_anual = pd.read_excel('datalake_files/Projecoes_LCA.xlsx','Base_Anual',header = 11).dropna().set_index('Unnamed: 0').T['IPCA - IBGE (% a.a.)']
+    lca_anual = pd.Series(lca_anual.values,index = list(map(lambda x: int(str(x)[:4]),lca_anual.index))).loc[2000:]
+    lca_anual = pd.Series([valor for valor in absolute(lca_anual.values,1598.41)],index = lca_anual.index,name = 'ipca')
+    df_anual = pd.DataFrame(index = pd.period_range(start = '{}-01-01'.format(lca_anual.index[0]),end = '{}-01-01'.format(lca_anual.index[-1]),freq = 'M'))
+    df_anual['ano'] = df_anual.index.year
+    df_anual = df_anual.join(lca_anual,on = 'ano')
+    df_anual['lca_anual'] = list(df_anual['ipca'].rolling(12).mean())[12:] + ([None] * 12)
+    lca_anual = df_anual['lca_anual']
+    lca_mensal = pd.read_excel('datalake_files/Projecoes_LCA.xlsx','Base_Mensal',header = 8).drop([0,1,2]).set_index('Período')['IPCA']
+    first_year = lca_mensal.index.year[0]
+    lca_mensal = pd.Series([valor for valor in absolute(lca_mensal.values,lca_anual[f'{first_year}-01'])],index = lca_mensal.index.to_period('M'),name = 'lca_mensal')
+    df = df.join(lca_mensal,on = 'UltimoReajuste')
+    df = df.join(lca_mensal,on = 'ReajusteDataBase',rsuffix = '_base')
+    df = df.join(lca_anual,on = 'UltimoReajuste')
+    df = df.join(lca_anual,on = 'ReajusteDataBase',rsuffix = '_base')
+    df['lca_mensal'] = df['lca_mensal'].fillna(df['lca_anual'])
+    df['lca_mensal_base'] = df['lca_mensal_base'].fillna(df['lca_anual_base'])
+    del(df['lca_anual'])
+    del(df['lca_anual_base'])
+    df['ValorReajustado'] = (df['lca_mensal'] / df['lca_mensal_base']) * df['Valor']
+    df['Total'] = df['QuantSolicitada'] * df['ValorReajustado']
+
     return df.sort_values('Competencia')
 
 def retrieve_forecast(risco):
@@ -173,7 +198,7 @@ def risco_juros(selic,dcf):
     selic['Período'] = selic['date'].apply(lambda x: x[:5] + str(int(x[5:])))
     date_range = pd.to_datetime(selic['date'],format = '%Y-%m')
     selic = selic.set_index('Período')
-    cen_df = pd.concat([(selic['prediction'].rename(i) + pd.Series(np.random.normal(scale = std,size = len(selic)),index = selic.index)) for i in range(size)],axis = 1)
+    cen_df = pd.concat([(selic['prediction'].rename(i) + pd.Series(np.random.normal(scale = std,size = len(selic)),index = selic.index).cumsum()) for i in range(size)],axis = 1)
     first_date = date_range[0]
 
     # Caixa
@@ -223,7 +248,7 @@ def risco_ipca(ipca,files):
     date_range = pd.to_datetime(ipca['date'],format = '%Y-%m')
     first_date = date_range[0]
     ipca = ipca.set_index('Período')
-    cen_df = pd.concat([(ipca['prediction'].rename(i) + pd.Series(np.random.normal(scale = std,size = len(ipca)),index = ipca.index)) for i in range(size)],axis = 1)
+    cen_df = (pd.concat([pd.Series(np.random.normal(scale = std,size = len(ipca)),index = ipca.index) for _ in range(size)],axis = 1).cumsum().T + ipca['prediction']).T
     
     # despesas
     cen_df_percent = cen_df.apply(dif_percent)
@@ -266,10 +291,11 @@ def risco_cambio(cambio,rp):
     size = 10000
     risco = rp.copy()
     std = cambio['std'].iloc[0]
-    risco = risco.join(cambio.set_index('date')[['prediction']],on = 'Period')
-    simulation = np.random.normal(size = size,scale = std)
-    cen_df = pd.concat([(risco['USD'] - (risco['prediction'] + sim)) * risco['Repayment'] for sim in simulation],axis = 1)
-    return cen_df.apply(lambda x: pd.Series(shuffle(x.values),index = x.index),axis = 1).cumsum()
+    # risco = risco.join(cambio.set_index('date')[['prediction']],on = 'Period')
+    cambio = cambio.join(risco.set_index('Period')[['USD','Repayment']],on = 'date').fillna(0)
+    cen_df = ((pd.concat([pd.Series(np.random.normal(scale = std,size = len(cambio)),index = cambio.index) for _ in range(size)],axis = 1).cumsum().T + cambio['USD'] - cambio['prediction']) * cambio['Repayment']).T
+    # cen_df = pd.concat([(risco['USD'] - (risco['prediction'] + sim)) * risco['Repayment'] for sim in simulation],axis = 1)
+    return cen_df.cumsum().set_index(pd.to_datetime(cambio['date']))
 
 def risco_generico(df):
     size = 10000
@@ -289,21 +315,22 @@ def risco_trading(ipca,con):
     first_date = ipca.index[0]
     last_date = ipca.index[-1]
     con = con[(con['Competencia'] >= first_date) & (con['Competencia'] <= last_date)]
-    cen_df = pd.concat([(ipca['prediction'].rename(i) + pd.Series(np.random.normal(scale = std,size = len(ipca)),index = ipca.index)) for i in range(size)],axis = 1)
+    cen_df = (pd.concat([pd.Series(np.random.normal(scale = std,size = len(ipca)),index = ipca.index) for _ in range(size)],axis = 1).cumsum().T + ipca['prediction']).T
     cenarios = []
     for i in cen_df.columns:
         cen = cen_df[[i]]
         temp = con.copy()
-        temp = temp.join(cen,on = 'Competencia')
+        temp = temp.join(cen,on = 'UltimoReajuste')
         temp = temp.join(cen,on = 'ReajusteDataBase',rsuffix = '_base')
-        temp[f'{i}_base'] = temp[f'{i}_base'].fillna(temp['ipca'])
+        temp[f'{i}_base'] = temp[f'{i}_base'].fillna(temp['ipca_base'])
+        temp[f'{i}'] = temp[f'{i}'].fillna(temp['ipca'])
         temp['ValorReajustadoCalculado'] = (temp[str(i)] / temp[f'{i}_base']) * temp['Valor']
         temp['TotalCalculado'] = temp['QuantSolicitada'] * temp['ValorReajustadoCalculado']
         temp = temp[['TotalCalculado','Competencia','Total']].groupby('Competencia').sum()
         temp['Diferenca'] = temp['TotalCalculado'] - temp['Total']
         cenarios.append(temp['Diferenca'].rename(i))
-        if i % 100 == 0:
-            print(i)
+        if len(cenarios) % 100 == 0:
+            print(len(cenarios))
     df = pd.concat(cenarios,axis = 1).cumsum()
     return df.set_index(df.index.to_timestamp())
 
@@ -356,6 +383,38 @@ def cenarios_preco_energia():
         simulator = simulate(last,60)
         sims.append(pd.Series([x for x in simulator]))
     return pd.concat(sims,axis = 1).set_index(datetime_index)
+
+def return_cenarios_risco(risco):
+    size = 1000
+    risco_pred = risco
+    if risco == 'TRADING':
+        risco_pred = 'INFLACAO'
+    df_risco = retrieve_forecast(risco_pred)
+    if risco == 'JUROS':
+        selic = df_risco
+        std = 0.024788480554999645
+        selic['Período'] = selic['date'].apply(lambda x: pd.Period(x))
+        selic = selic.set_index('Período')
+        cen_df = (pd.concat([pd.Series(np.random.normal(scale = std,size = len(selic)),index = selic.index) for _ in range(size)],axis = 1).cumsum().T + selic['prediction']).T
+    if risco == 'CAMBIO':
+        cambio = df_risco
+        std = 0.1281024428289958
+        cambio['Período'] = cambio['date'].apply(lambda x: pd.Period(x))
+        cambio = cambio.set_index('Período')
+        cen_df = (pd.concat([pd.Series(np.random.normal(scale = std,size = len(cambio)),index = cambio.index) for _ in range(size)],axis = 1).cumsum().T + cambio['prediction']).T
+    if (risco == 'INFLACAO') or (risco == 'TRADING'):
+        ipca = df_risco
+        ipca['date'] = ipca['date'].apply(lambda x: pd.Period(x))
+        ipca = ipca.set_index('date')
+        std = 16.80103821134177
+        cen_df = (pd.concat([pd.Series(np.random.normal(0,std,len(ipca)),index = ipca.index) for i in range(size)],axis = 1).cumsum().T + ipca['prediction']).T
+    if risco == 'GSF':
+        gsf = df_risco
+        std = 0.136
+        gsf['Período'] = gsf['date'].apply(lambda x: pd.Period(x))
+        gsf = gsf.set_index('Período')
+        cen_df = pd.concat([(gsf['prediction'].rename(i) + pd.Series(np.random.normal(scale = std,size = len(gsf)),index = gsf.index)) for i in range(size)],axis = 1)
+    return cen_df.set_index(cen_df.index.to_timestamp())
 
 def calculate_cenarios(risco,df_risco = pd.DataFrame()):
     risco_pred = risco

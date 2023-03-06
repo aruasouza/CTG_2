@@ -192,7 +192,7 @@ def weight(points,expo):
     return ajust
 
 def simple_model_predict(serie,projection_points):
-    ma = serie.rolling(6).mean().dropna()
+    ma = serie.rolling(12,center = True).mean().dropna()
     values = ma.values
     last_dif = values[-1] - values[-2]
     line = LinearRegression().fit(np.arange(len(values)).reshape(-1,1),values).predict(np.arange(len(values),len(values) + projection_points).reshape(-1,1)) - values[-1]
@@ -233,7 +233,7 @@ def predict_ipca(test = False):
         last = ipca.values.ravel()[-1]
         difference = prediction[0] - last
         prediction_final = pd.Series(prediction - difference).rolling(6,1).mean().values
-        std = 93.34171767852158
+        std = 16.80103821134177
         pred_df = pd.DataFrame({'prediction':prediction_final},index = prediction_t.time_index.to_period('M'))
         pred_df['std'] = std
         # Salvando no Log
@@ -273,7 +273,7 @@ def predict_cambio(test = False):
         last = cambio.values.ravel()[-1]
         difference = prediction[0] - last
         prediction_final = pd.Series(prediction - difference).rolling(6,1).mean().values
-        std = 0.9427955605464439
+        std = 0.1281024428289958
         pred_df = pd.DataFrame({'prediction':prediction_final},index = prediction_t.time_index.to_period('M'))
         pred_df['std'] = std
         # Salvando no Log
@@ -293,16 +293,15 @@ def predict_cdi(test = False):
         cdi = df['cdi']
         # Treinando o modelo de SELIC
         anos = 5
-        y_train = cdi.iloc[:-12 * anos]
-        # Calculando o Erro
-        prediction = simple_model_predict(y_train,12 * anos)
-        pred_df = df.copy()
-        pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
-        pred_df['res'] = (pred_df['cdi'] - pred_df['prediction'])
         if test:
+            y_train = cdi.iloc[:-12 * anos]
+            # Calculando o Erro
+            prediction = simple_model_predict(y_train,12 * anos)
+            pred_df = df.copy()
+            pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
+            pred_df['res'] = (pred_df['cdi'] - pred_df['prediction'])
             return pred_df
-        pred = pred_df.dropna()
-        std = math.sqrt(np.square(np.subtract(pred['cdi'].values,pred['prediction'].values)).mean())
+        std = 0.024788480554999645
         # Treinando novamente o modelo e calculando o Forecast
         prediction = simple_model_predict(cdi,12 * anos)
         pred_df = pd.DataFrame({'prediction':prediction},
@@ -327,17 +326,16 @@ def predict_gsf(test = False):
         df = df.drop('gsf',axis = 1)
         # Treinando o modelo de SELIC
         anos = 3
-        y_train = df.iloc[:-anos * 12]
-        model = Forest(y_train)
-        # Calculando o Erro
-        prediction = model.predict(12 * anos)
-        pred_df = gsf.copy()
-        pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
-        pred_df['res'] = (pred_df['gsf'] - pred_df['prediction'])
         if test:
+            y_train = df.iloc[:-anos * 12]
+            model = Forest(y_train)
+            # Calculando o Erro
+            prediction = model.predict(12 * anos)
+            pred_df = gsf.copy()
+            pred_df['prediction'] = [None for _ in range(len(pred_df) - len(prediction))] + list(prediction)
+            pred_df['res'] = (pred_df['gsf'] - pred_df['prediction'])
             return pred_df
-        pred = pred_df.dropna()
-        std = math.sqrt(np.square(np.subtract(pred['gsf'].values,pred['prediction'].values)).mean())
+        std = 0.136
         # Treinando novamente o modelo e calculando o Forecast
         model = Forest(df)
         prediction = model.predict(12 * anos)
