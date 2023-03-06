@@ -74,10 +74,9 @@ def show_simulation(cen_df,mes,ano):
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
     row = cen_df.iloc[-1]
-    pior,melhor = int(np.percentile(row.values,25)),int(np.percentile(row.values,75))
-    ttk.Label(root,text = f'Pior cenário (25%): {pior} ou menos.').place(relx=0.5, rely=0.76, anchor='center')
-    ttk.Label(root,text = f'Cenário médio (50%): de {pior} a {melhor}.').place(relx=0.5, rely=0.8, anchor='center')
-    ttk.Label(root,text = f'Melhor cenário (25%): {melhor} ou mais.').place(relx=0.5, rely=0.84, anchor='center')
+    pior,medio = min(0,int(np.percentile(row.values,5))),min(0,int(np.percentile(row.values,50)))
+    ttk.Label(root,text = 'Pior cenário (5%): Prejuízo de R$ {valor:_},00 ou mais.'.format(valor = abs(pior)).replace('_','.')).place(relx=0.5, rely=0.80, anchor='center')
+    ttk.Label(root,text = 'Cenário Médio: Prejuízo de R$ {valor:_},00 ou mais.'.format(valor = abs(medio)).replace('_','.')).place(relx=0.5, rely=0.84, anchor='center')
 
 def create_done_window():
     terminate_window()
