@@ -16,6 +16,7 @@ from setup import upload_file_to_directory,logfile_name,adlsFileSystemClient
 import montecarlo
 import budget
 import numpy as np
+import cenarios_personalizados as cp
 
 def upload_file(Risco):
     create_upload_window()
@@ -51,6 +52,27 @@ def upload_file(Risco):
     multithread.ADLUploader(adlsFileSystemClient, lpath='records.csv',
         rpath=f'DataLakeRiscoECompliance/LOG/records.csv', nthreads=64, overwrite=True, buffersize=4194304, blocksize=4194304)
     ttk.Label(root,text = 'O arquivo foi enviado com sucesso para a nuvem.').place(relx=0.5, rely=0.2, anchor='center')
+
+def upload_cen_file(Risco):
+    create_upload_cen_window()
+    file_path = filedialog.askopenfilename()
+    try:
+        output = pd.read_csv(file_path)
+    except Exception:
+        ttk.Label(root,text = 'Erro: O arquivo selecionado não é do formato correto.').place(relx=0.5, rely=0.2, anchor='center')
+        return
+    if len(output) > 72:
+        ttk.Label(root,text = 'Erro: O tamanho do arquivo excede o limite máximo').place(relx=0.5, rely=0.2, anchor='center')
+        return
+    if list(output.columns) != ['date', 'pior', 'medio', 'melhor']:
+        ttk.Label(root,text = 'Erro: As colunas do arquivo devem ser (nessa ordem): date, pior, medio, melhor').place(relx=0.5, rely=0.2, anchor='center')
+        return
+    date_sample = output.loc[0,'date']
+    if not re.match("^\d{4}-\d{2}$", date_sample):
+        ttk.Label(root,text = 'Erro: As datas não estão no formato correto (YYYY-mm). Exemplo: 2020-04').place(relx=0.5, rely=0.2, anchor='center')
+        return
+    output = output.set_index('date')
+    print(cp.calculate(Risco,output))
 
 def show_forecast():
     fig = Figure(figsize = (10,7),dpi = 100)
@@ -188,6 +210,15 @@ def create_upload_window():
     ttk.Button(root, text="GSF", command=lambda: upload_file('GSF')).place(relx=0.5, rely=0.6, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
+def create_upload_cen_window():
+    terminate_window()
+    ttk.Button(root, text="Inflação", command=lambda: upload_cen_file('INFLACAO')).place(relx=0.5, rely=0.3, anchor='center')
+    ttk.Button(root, text="Câmbio", command=lambda: upload_cen_file('CAMBIO')).place(relx=0.5, rely=0.4, anchor='center')
+    ttk.Button(root, text="Juros", command=lambda: upload_cen_file('JUROS')).place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Button(root, text="GSF", command=lambda: upload_cen_file('GSF')).place(relx=0.5, rely=0.6, anchor='center')
+    ttk.Button(root, text="Trading (Inflação)", command=lambda: upload_cen_file('TRADING')).place(relx=0.5, rely=0.7, anchor='center')
+    ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
+
 def create_simulador_window():
     terminate_window()
     ttk.Button(root, text="Inflação", command=lambda: get_file_names('INFLACAO')).place(relx=0.5, rely=0.3, anchor='center')
@@ -200,8 +231,9 @@ def create_simulador_window():
 def create_main_window():
     terminate_window()
     ttk.Button(root, text="Gerar Forecasts", command=create_forecast_window).place(relx=0.5, rely=0.3, anchor='center')
-    ttk.Button(root, text="Subir Forecast Personalizado", command=create_upload_window).place(relx=0.5, rely=0.5, anchor='center')
-    ttk.Button(root, text="Simular Cenários", command=create_simulador_window).place(relx=0.5, rely=0.7, anchor='center')
+    ttk.Button(root, text="Subir Forecast Personalizado", command=create_upload_window).place(relx=0.5, rely=0.4, anchor='center')
+    ttk.Button(root, text="Simular Cenários", command=create_simulador_window).place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Button(root, text="Calcular Cenários Personalizados", command=create_upload_cen_window).place(relx=0.5, rely=0.6, anchor='center')
 
 def terminate_window():
     for element in root.winfo_children():

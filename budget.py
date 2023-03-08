@@ -90,7 +90,7 @@ def read_cash_dcf():
         except ValueError as e:
             print(e)
             messages.append(f'{i}ª Emissão CDI: ' + str(e))
-    return dfs,serie_selic[datetime.datetime.today():]
+    return dfs,serie_selic[datetime.datetime.today():].copy()
 
 def read_rp():
     rp = pd.read_excel('datalake_files/09 Debt vs Setembro 2022 - RP - Budget 2023.xlsx',sheet_name = 'Daily Calculation prop2019',header = 2)
@@ -291,10 +291,8 @@ def risco_cambio(cambio,rp):
     size = 10000
     risco = rp.copy()
     std = cambio['std'].iloc[0]
-    # risco = risco.join(cambio.set_index('date')[['prediction']],on = 'Period')
     cambio = cambio.join(risco.set_index('Period')[['USD','Repayment']],on = 'date').fillna(0)
     cen_df = ((pd.concat([pd.Series(np.random.normal(scale = std,size = len(cambio)),index = cambio.index) for _ in range(size)],axis = 1).cumsum().T + cambio['USD'] - cambio['prediction']) * cambio['Repayment']).T
-    # cen_df = pd.concat([(risco['USD'] - (risco['prediction'] + sim)) * risco['Repayment'] for sim in simulation],axis = 1)
     return cen_df.cumsum().set_index(pd.to_datetime(cambio['date']))
 
 def risco_generico(df):
