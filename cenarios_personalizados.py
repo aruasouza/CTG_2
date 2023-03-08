@@ -122,6 +122,10 @@ def calculate(risco,cenarios):
     if risco == 'TRADING':
         calculator = trading
         files = budget.read_contracts()
-    for name in ['pior','medio','melhor']:
+    for name in ['worst','base','best']:
         cenarios[name] = calculator(cenarios[name],files)
-    return cenarios
+    cenarios['probabilidade_de_prejuizo'] = 0.5
+    cenarios = cenarios.set_index(pd.to_datetime(cenarios.index,format = '%Y-%m'))
+    cenarios.to_csv(f'risco_{risco}.csv')
+    budget.upload_file(risco,'risco')
+    return cenarios.drop('probabilidade_de_prejuizo',axis = 1)

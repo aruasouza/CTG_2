@@ -64,15 +64,25 @@ def upload_cen_file(Risco):
     if len(output) > 72:
         ttk.Label(root,text = 'Erro: O tamanho do arquivo excede o limite máximo').place(relx=0.5, rely=0.2, anchor='center')
         return
-    if list(output.columns) != ['date', 'pior', 'medio', 'melhor']:
+    if list(output.columns) != ['date', 'worst', 'base', 'best']:
         ttk.Label(root,text = 'Erro: As colunas do arquivo devem ser (nessa ordem): date, pior, medio, melhor').place(relx=0.5, rely=0.2, anchor='center')
         return
     date_sample = output.loc[0,'date']
     if not re.match("^\d{4}-\d{2}$", date_sample):
         ttk.Label(root,text = 'Erro: As datas não estão no formato correto (YYYY-mm). Exemplo: 2020-04').place(relx=0.5, rely=0.2, anchor='center')
         return
+    terminate_window()
+    ttk.Label(root,text = 'Calculando. Isso pode levar alguns minutos.').place(relx=0.5, rely=0.5, anchor='center')
     output = output.set_index('date')
-    print(cp.calculate(Risco,output))
+    thread = threading.Thread(target = lambda: thread_upload_cen(Risco,output))
+    thread.start()
+
+def thread_upload_cen(Risco,output):
+    cen = cp.calculate(Risco,output)
+    ano,mes = cen.index[-1].year,cen.index[-1].month
+    terminate_window()
+    ttk.Label(root,text = 'Cenários calculados e enviados com sucesso para a nuvem').place(relx=0.5, rely=0.4, anchor='center')
+    ttk.Button(root,text = 'Visualizar',command = lambda: show_simulation(cen,mes,ano,1,Risco,False)).place(relx=0.5,rely=0.6,anchor='center')
 
 def show_forecast():
     fig = Figure(figsize = (10,7),dpi = 100)
@@ -82,14 +92,15 @@ def show_forecast():
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
-def show_simulation(cen_df,mes,ano):
+def show_simulation(cen_df,mes,ano,alpha = 0.1,risco = None,labels = True):
     date_selected = datetime(int(ano),int(mes),1)
     cen_df = cen_df[:date_selected]
     fig = Figure(figsize = (5,3),dpi = 100)
-    risco = montecarlo.main_info['risco']
+    if risco == None:
+        risco = montecarlo.main_info['risco']
     ax = fig.add_subplot(111)
     for cenario in cen_df.columns[:1000]:
-        ax.plot(cen_df.index,cen_df[cenario],alpha = 0.1,color = 'red')
+        ax.plot(cen_df.index,cen_df[cenario],alpha = alpha,color = 'red')
     ax.set_title(f'Cenários {risco}')
     canvas = FigureCanvasTkAgg(fig, master=root)  # A tk.DrawingArea.
     canvas.draw()
@@ -97,8 +108,9 @@ def show_simulation(cen_df,mes,ano):
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
     row = cen_df.iloc[-1]
     pior,medio = min(0,int(np.percentile(row.values,5))),min(0,int(np.percentile(row.values,50)))
-    ttk.Label(root,text = 'Pior cenário (5%): Prejuízo de R$ {valor:_},00 ou mais.'.format(valor = abs(pior)).replace('_','.')).place(relx=0.5, rely=0.80, anchor='center')
-    ttk.Label(root,text = 'Cenário Médio: Prejuízo de R$ {valor:_},00 ou mais.'.format(valor = abs(medio)).replace('_','.')).place(relx=0.5, rely=0.84, anchor='center')
+    if labels:
+        ttk.Label(root,text = 'Pior cenário (5%): Prejuízo de R$ {valor:_},00 ou mais.'.format(valor = abs(pior)).replace('_','.')).place(relx=0.5, rely=0.80, anchor='center')
+        ttk.Label(root,text = 'Cenário Médio: Prejuízo de R$ {valor:_},00 ou mais.'.format(valor = abs(medio)).replace('_','.')).place(relx=0.5, rely=0.84, anchor='center')
 
 def create_done_window():
     terminate_window()
@@ -125,7 +137,7 @@ def thread_gsf():
 
 def forecast_ipca():
     terminate_window()
-    ttk.Label(root,text = 'Aguarde, a função está sendo executada').place(relx=0.5, rely=0.5, anchor='center')
+    ttk.Label(root,text = 'Calculando. Isso pode levar alguns minutos.').place(relx=0.5, rely=0.5, anchor='center')
     thread = threading.Thread(target = thread_ipca)
     thread.start()
 
@@ -215,8 +227,7 @@ def create_upload_cen_window():
     ttk.Button(root, text="Inflação", command=lambda: upload_cen_file('INFLACAO')).place(relx=0.5, rely=0.3, anchor='center')
     ttk.Button(root, text="Câmbio", command=lambda: upload_cen_file('CAMBIO')).place(relx=0.5, rely=0.4, anchor='center')
     ttk.Button(root, text="Juros", command=lambda: upload_cen_file('JUROS')).place(relx=0.5, rely=0.5, anchor='center')
-    ttk.Button(root, text="GSF", command=lambda: upload_cen_file('GSF')).place(relx=0.5, rely=0.6, anchor='center')
-    ttk.Button(root, text="Trading (Inflação)", command=lambda: upload_cen_file('TRADING')).place(relx=0.5, rely=0.7, anchor='center')
+    ttk.Button(root, text="Trading (Inflação)", command=lambda: upload_cen_file('TRADING')).place(relx=0.5, rely=0.6, anchor='center')
     ttk.Button(root,text = 'Menu',command = create_main_window).place(relx=0.1,rely=0.1,anchor='center')
 
 def create_simulador_window():

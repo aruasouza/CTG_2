@@ -443,8 +443,7 @@ def calculate_all():
         cen_df = calculate_cenarios(risco)
         risc_df = pd.DataFrame(index = cen_df.index)
         risc_df['probabilidade_de_prejuizo'] = cen_df.apply(lambda x: sum(x < 0) / len(x),axis = 1)
-        risc_df['impacto_mais_provavel'] = cen_df.apply(lambda x: x.mean(),axis = 1)
-        risc_df.index.name = 'data'
+        risc_df.index.name = 'date'
         cen_df_resumed = pd.concat([cen_df.apply(lambda x: np.percentile(x,i),axis = 1) for i in range(1,100)],axis = 1).rename({i:'{}%'.format(i+1) for i in range(99)},axis = 1)
         risc_df['worst'] = cen_df_resumed['5%']
         risc_df['base'] = cen_df_resumed['50%']
